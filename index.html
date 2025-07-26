@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    
+    <!-- SEO and Social Sharing Meta Tags -->
+    <title>Bitcoin Adventure - Crypto Platformer Game</title>
+    <meta name="description" content="Join Bitcoin Adventure! A fun 2D platformer where you collect Bitcoin while avoiding central banking obstacles. Play now in your browser!">
+    <meta name="keywords" content="bitcoin, crypto, platformer, game, web game, cryptocurrency, blockchain">
+    <meta name="author" content="Bitcoin Adventure">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="">
+    <meta property="og:title" content="Bitcoin Adventure - Crypto Platformer Game">
+    <meta property="og:description" content="Join Bitcoin Adventure! A fun 2D platformer where you collect Bitcoin while avoiding central banking obstacles.">
+    <meta property="og:image" content="assets/images/social-preview.png">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="">
+    <meta property="twitter:title" content="Bitcoin Adventure - Crypto Platformer Game">
+    <meta property="twitter:description" content="Join Bitcoin Adventure! A fun 2D platformer where you collect Bitcoin while avoiding central banking obstacles.">
+    <meta property="twitter:image" content="assets/images/social-preview.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="assets/images/favicon.ico">
+    <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
+    
+    <!-- Security Headers for Standalone Hosting -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; font-src 'self'; media-src 'self'; object-src 'none';">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()">
+    
+    <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="bitcoin-logo">₿</div>
+            <div class="loading-title">Bitcoin Adventure</div>
+            <div class="loading-text">Loading your crypto journey...</div>
+            <div class="loading-bar">
+                <div id="loading-progress" class="loading-progress"></div>
+            </div>
+            <div class="loading-percentage">0%</div>
+            <div class="loading-tips" id="loading-tips">
+                Tip: Use arrow keys to move and spacebar to jump!
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Container -->
+    <div id="game" class="game-container"></div>
+
+    <!-- Instructions Panel (Hidden by default) -->
+    <div id="instructions-panel" class="instructions-panel hidden">
+        <div class="instructions-content">
+            <h3>How to Play</h3>
+            <div class="controls-grid">
+                <div class="control-item">
+                    <kbd>←</kbd> <kbd>→</kbd>
+                    <span>Move Left/Right</span>
+                </div>
+                <div class="control-item">
+                    <kbd>Space</kbd> or <kbd>↑</kbd>
+                    <span>Jump</span>
+                </div>
+                <div class="control-item">
+                    <kbd>P</kbd>
+                    <span>Pause Game</span>
+                </div>
+                <div class="control-item">
+                    <kbd>F</kbd>
+                    <span>Fullscreen</span>
+                </div>
+            </div>
+            <div class="game-objectives">
+                <h4>Objectives:</h4>
+                <ul>
+                    <li>Collect as many Bitcoin (₿) as possible</li>
+                    <li>Avoid central bank enemies</li>
+                    <li>Reach the goal flag to complete levels</li>
+                    <li>Survive and achieve the highest score!</li>
+                </ul>
+            </div>
+            <button id="close-instructions" class="btn-close">Got it!</button>
+        </div>
+    </div>
+
+    <!-- Fullscreen Button -->
+    <button id="fullscreen-btn" class="fullscreen-btn" title="Toggle Fullscreen">⛶</button>
+
+    <!-- Instructions Button -->
+    <button id="help-btn" class="help-btn" title="Show Controls">?</button>
+
+    <!-- Include Phaser -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+    
+    <!-- Game Loading and UI Management -->
+    <script>
+        // Enhanced loading screen controller for standalone web hosting
+        window.GameLoader = {
+            tips: [
+                "Tip: Use arrow keys to move and spacebar to jump!",
+                "Tip: Collect Bitcoin to increase your score!",
+                "Tip: Avoid the central bank enemies!",
+                "Tip: Press P to pause the game anytime!",
+                "Tip: Try fullscreen mode for the best experience!",
+                "Tip: Each level gets progressively harder!",
+                "Tip: Look for secret areas and bonus coins!"
+            ],
+            currentTip: 0,
+            
+            init: function() {
+                this.rotateTips();
+                this.setupEventListeners();
+            },
+            
+            rotateTips: function() {
+                const tipsElement = document.getElementById('loading-tips');
+                if (tipsElement && this.tips.length > 0) {
+                    this.currentTip = (this.currentTip + 1) % this.tips.length;
+                    tipsElement.textContent = this.tips[this.currentTip];
+                }
+            },
+            
+            updateProgress: function(progress) {
+                try {
+                    const sanitizedProgress = Math.max(0, Math.min(1, progress));
+                    const progressBar = document.getElementById('loading-progress');
+                    const percentageText = document.querySelector('.loading-percentage');
+                    
+                    if (progressBar) {
+                        progressBar.style.width = (sanitizedProgress * 100) + '%';
+                    }
+                    
+                    if (percentageText) {
+                        percentageText.textContent = Math.round(sanitizedProgress * 100) + '%';
+                    }
+                    
+                    // Rotate tips during loading
+                    if (sanitizedProgress > 0 && sanitizedProgress < 1) {
+                        this.rotateTips();
+                    }
+                } catch (error) {
+                    console.error('Error updating progress:', error);
+                }
+            },
+            
+            hideLoadingScreen: function() {
+                try {
+                    const loadingScreen = document.getElementById('loading-screen');
+                    if (loadingScreen) {
+                        loadingScreen.style.opacity = '0';
+                        setTimeout(() => {
+                            loadingScreen.style.display = 'none';
+                        }, 500);
+                    }
+                } catch (error) {
+                    console.error('Error hiding loading screen:', error);
+                }
+            },
+            
+            setupEventListeners: function() {
+                // Fullscreen functionality
+                const fullscreenBtn = document.getElementById('fullscreen-btn');
+                if (fullscreenBtn) {
+                    fullscreenBtn.addEventListener('click', this.toggleFullscreen);
+                }
+                
+                // Instructions panel
+                const helpBtn = document.getElementById('help-btn');
+                const instructionsPanel = document.getElementById('instructions-panel');
+                const closeBtn = document.getElementById('close-instructions');
+                
+                if (helpBtn && instructionsPanel) {
+                    helpBtn.addEventListener('click', () => {
+                        instructionsPanel.classList.toggle('hidden');
+                    });
+                }
+                
+                if (closeBtn && instructionsPanel) {
+                    closeBtn.addEventListener('click', () => {
+                        instructionsPanel.classList.add('hidden');
+                    });
+                }
+                
+                // Keyboard shortcuts
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'F' || e.key === 'f') {
+                        if (e.ctrlKey || e.metaKey) return; // Don't interfere with browser shortcuts
+                        e.preventDefault();
+                        this.toggleFullscreen();
+                    }
+                    
+                    if (e.key === 'Escape' && instructionsPanel && !instructionsPanel.classList.contains('hidden')) {
+                        instructionsPanel.classList.add('hidden');
+                    }
+                });
+                
+                // Handle fullscreen change events
+                document.addEventListener('fullscreenchange', this.updateFullscreenButton);
+                document.addEventListener('webkitfullscreenchange', this.updateFullscreenButton);
+                document.addEventListener('mozfullscreenchange', this.updateFullscreenButton);
+                document.addEventListener('MSFullscreenChange', this.updateFullscreenButton);
+            },
+            
+            toggleFullscreen: function() {
+                const gameContainer = document.getElementById('game') || document.documentElement;
+                
+                if (!document.fullscreenElement && !document.webkitFullscreenElement && 
+                    !document.mozFullScreenElement && !document.msFullscreenElement) {
+                    // Enter fullscreen
+                    if (gameContainer.requestFullscreen) {
+                        gameContainer.requestFullscreen();
+                    } else if (gameContainer.webkitRequestFullscreen) {
+                        gameContainer.webkitRequestFullscreen();
+                    } else if (gameContainer.mozRequestFullScreen) {
+                        gameContainer.mozRequestFullScreen();
+                    } else if (gameContainer.msRequestFullscreen) {
+                        gameContainer.msRequestFullscreen();
+                    }
+                } else {
+                    // Exit fullscreen
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        document.msExitFullscreen();
+                    }
+                }
+            },
+            
+            updateFullscreenButton: function() {
+                const btn = document.getElementById('fullscreen-btn');
+                if (btn) {
+                    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || 
+                                       document.mozFullScreenElement || document.msFullscreenElement;
+                    btn.textContent = isFullscreen ? '⛳' : '⛶';
+                    btn.title = isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen';
+                }
+            }
+        };
+        
+        // Error handling for standalone hosting
+        window.addEventListener('error', (e) => {
+            console.error('Game Error:', e.message, 'at', e.filename, ':', e.lineno);
+            
+            // Show user-friendly error if game fails to load
+            if (e.message.includes('Phaser') || e.message.includes('game')) {
+                const loadingScreen = document.getElementById('loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.innerHTML = `
+                        <div class="error-content">
+                            <div class="error-icon">⚠️</div>
+                            <div class="error-title">Loading Error</div>
+                            <div class="error-message">Failed to load the game. Please refresh the page and try again.</div>
+                            <button onclick="location.reload()" class="btn-reload">Reload Game</button>
+                        </div>
+                    `;
+                }
+            }
+        });
+        
+        // Initialize when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            window.GameLoader.init();
+        });
+        
+        // Performance monitoring for standalone hosting
+        window.addEventListener('load', function() {
+            if ('performance' in window) {
+                const loadTime = performance.timing.loadEventEnd - performance.timing.navigationStart;
+                console.log('Page load time:', loadTime + 'ms');
+                
+                // Report slow loading times
+                if (loadTime > 5000) {
+                    console.warn('Slow loading detected. Consider optimizing assets.');
+                }
+            }
+        });
+    </script>
+    
+    <!-- Include the main game script -->
+    <script src="scripts/game.js?v=2.1"></script>
+</body>
+</html> 
