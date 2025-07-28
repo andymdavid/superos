@@ -352,7 +352,8 @@ window.gameState = {
     highScore: window.highScoreManager.getStats().topScore,
     currentScene: 'title',
     gameStartTime: null,
-    currentGameBitcoins: 0
+    currentGameBitcoins: 0,
+    selectedCharacter: 'andy' // Add character selection: 'andy' or 'female'
 };
 
 // Power-up System - Phase 3.2
@@ -1001,7 +1002,13 @@ class TitleScene extends Phaser.Scene {
             
             // Enhanced loading with retry mechanism - Phase 1.3
             this.load.on('loaderror', (file) => {
-                console.warn('Asset failed to load:', file.key);
+                console.warn('❌ Asset failed to load:', file.key, 'URL:', file.url);
+                
+                // Special handling for female player sprite
+                if (file.key === 'female_player') {
+                    console.error('🚨 Female player sprite failed to load!');
+                    console.error('🔍 Check if SydSprite.png exists at:', file.url);
+                }
                 
                 // Track failed asset
                 this.failedAssets.add(file.key);
@@ -1013,7 +1020,7 @@ class TitleScene extends Phaser.Scene {
                     // Increment retry count
                     this.retryAttempts.set(file.key, currentRetries + 1);
                     
-                    console.log(`Retrying asset '${file.key}' (attempt ${currentRetries + 1}/2)`);
+                    console.log(`🔄 Retrying asset '${file.key}' (attempt ${currentRetries + 1}/2)`);
                     
                     // Retry after 1 second delay
                     setTimeout(() => {
@@ -1021,11 +1028,11 @@ class TitleScene extends Phaser.Scene {
                             // Retry loading the specific asset
                             this.retryAssetLoad(file.key, file.url);
                         } catch (retryError) {
-                            console.error(`Retry failed for ${file.key}:`, retryError);
+                            console.error(`❌ Retry failed for ${file.key}:`, retryError);
                         }
                     }, 1000);
                 } else {
-                    console.warn(`Max retries reached for '${file.key}', using fallback`);
+                    console.warn(`⚠️ Max retries reached for '${file.key}', using fallback`);
                 }
             });
 
@@ -1039,12 +1046,62 @@ class TitleScene extends Phaser.Scene {
                 }
             });
 
-            // Load game assets with error handling
-            try {
-                this.load.image('background', 'assets/images/background.png');
-                this.load.spritesheet('player', 'assets/images/AndySprite.png', {
-                    frameWidth: 341,
-                    frameHeight: 512
+                            // Load game assets with error handling
+                try {
+                    // Debug Andy sprite dimensions
+                    const andyImg = new Image();
+                    andyImg.onload = () => {
+                        console.log('🔍 Andy sprite actual dimensions:', {
+                            width: andyImg.width,
+                            height: andyImg.height
+                        });
+                    };
+                    andyImg.src = 'assets/images/AndySprite.png';
+
+                    // Debug Syd sprite dimensions
+                    const sydImg = new Image();
+                    sydImg.onload = () => {
+                        console.log('🔍 Syd sprite actual dimensions:', {
+                            width: sydImg.width,
+                            height: sydImg.height
+                        });
+                    };
+                    sydImg.src = 'assets/images/SydSprite.png';
+
+                    this.load.image('background', 'assets/images/background.png');
+                    
+                    // Load Andy sprite
+                    console.log('📥 Loading Andy sprite with 341x512 frames');
+                    this.load.spritesheet('player', 'assets/images/AndySprite.png', {
+                        frameWidth: 341,
+                        frameHeight: 512
+                    });
+                    
+                                    // Load female character spritesheet
+                console.log('📥 Loading female player spritesheet from assets/images/SydSprite.png');
+                this.load.spritesheet('female_player', 'assets/images/SydSprite.png', {
+                    frameWidth: 341,    // Match Andy's frame size
+                    frameHeight: 532,   // Slightly taller to prevent cutoff
+                    spacing: 0,
+                    margin: 0
+                });
+                
+                // Add load complete handler for debugging
+                this.load.on('complete', () => {
+                    if (this.textures.exists('female_player')) {
+                        const texture = this.textures.get('female_player');
+                        console.log('📥 Female player sprite loaded:', {
+                            frameWidth: texture.source[0].width,
+                            frameHeight: texture.source[0].height,
+                            frameTotal: texture.frameTotal
+                        });
+                    }
+                });
+                
+                // Add load event listener for female player
+                this.load.on('filecomplete-spritesheet-female_player', () => {
+                    console.log('✅ Female player spritesheet loaded successfully');
+                    console.log('📊 Female player texture info:', this.textures.get('female_player'));
                 });
                 this.load.spritesheet('enemy', 'assets/images/yellen.png', {
                     frameWidth: 32,
@@ -1108,6 +1165,13 @@ class TitleScene extends Phaser.Scene {
                     this.load.spritesheet(assetKey, originalUrl, {
                         frameWidth: 341,
                         frameHeight: 512
+                    });
+                    break;
+                case 'female_player':
+                    console.log('🔄 Retrying female player sprite:', originalUrl);
+                    this.load.spritesheet(assetKey, originalUrl, {
+                        frameWidth: 32,
+                        frameHeight: 48
                     });
                     break;
                 case 'enemy':
@@ -1194,6 +1258,16 @@ class TitleScene extends Phaser.Scene {
         graphics.fillRect(8, 8, 16, 8);
         graphics.generateTexture('player_fallback', 32, 48);
         
+        // Female player fallback
+        graphics.clear();
+        graphics.fillStyle(0xff69b4); // Pink for female character
+        graphics.fillRect(0, 0, 32, 48);
+        graphics.fillStyle(0x000000);
+        graphics.fillRect(8, 8, 16, 8);
+        graphics.fillStyle(0xffffff);
+        graphics.fillRect(10, 20, 12, 4); // Different distinguishing feature
+        graphics.generateTexture('female_player_fallback', 32, 48);
+        
         // Bitcoin fallback
         graphics.clear();
         graphics.fillStyle(0xf7931a);
@@ -1239,6 +1313,99 @@ class TitleScene extends Phaser.Scene {
             frameRate: 10,
             repeat: -1
         });
+
+        // Female character animations with fallback support
+        const femalePlayerKey = this.textures.exists('female_player') ? 'female_player' : 'female_player_fallback';
+        
+        console.log('🎬 Creating female character animations with key:', femalePlayerKey);
+        
+        this.anims.create({
+            key: 'female_idle',
+            frames: this.textures.exists('female_player') ? 
+                [{ key: 'female_player', frame: 0 }] :
+                [{ key: 'female_player_fallback', frame: 0 }],
+            frameRate: 1,
+            repeat: 0
+        });
+        console.log('✅ Created female_idle animation');
+
+        // Right-facing animations (frames 1-2 from top row)
+        this.anims.create({
+            key: 'female_walk_right',
+            frames: this.textures.exists('female_player') ? 
+                this.anims.generateFrameNumbers('female_player', { frames: [1, 2] }) :
+                [{ key: 'female_player_fallback', frame: 0 }],
+            frameRate: 8,
+            repeat: -1
+        });
+        console.log('✅ Created female_walk_right animation');
+
+        // Left-facing animations (frames 5-6 from bottom row)
+        try {
+            this.anims.create({
+                key: 'female_walk_left',
+                frames: this.textures.exists('female_player') ? 
+                    this.anims.generateFrameNumbers('female_player', { start: 4, end: 5 }) :
+                    [{ key: 'female_player_fallback', frame: 0 }],
+                frameRate: 6,
+                repeat: -1
+            });
+            console.log('✅ Created female_walk_left animation with frames 4-5');
+        } catch (error) {
+            console.error('❌ Error creating female_walk_left animation:', error);
+            // Fallback to single frame if animation creation fails
+            this.anims.create({
+                key: 'female_walk_left',
+                frames: [{ key: 'female_player', frame: 4 }],
+                frameRate: 1,
+                repeat: 0
+            });
+            console.log('⚠️ Using fallback single frame for female_walk_left');
+        }
+
+        // Debug frame count
+        if (this.textures.exists('female_player')) {
+            const texture = this.textures.get('female_player');
+            console.log('🎬 Female player texture info:', {
+                frameTotal: texture.frameTotal,
+                frames: texture.frames
+            });
+        }
+        console.log('✅ Created female_walk_left animation');
+
+        // Static jump animation using frame 4 (index 3)
+        this.anims.create({
+            key: 'female_jump',
+            frames: this.textures.exists('female_player') ? 
+                [{ key: 'female_player', frame: 3 }] : // Frame 4 in human counting (frame 3)
+                [{ key: 'female_player_fallback', frame: 0 }],
+            frameRate: 1,
+            repeat: 0
+        });
+        console.log('🎬 Debug - Static jump frame:', 3);
+        console.log('✅ Created female_jump animation');
+
+        // Right jump animation using frame 3
+        this.anims.create({
+            key: 'female_jump_right',
+            frames: this.textures.exists('female_player') ? 
+                [{ key: 'female_player', frame: 3 }] : // Frame 4 in human counting (frame 3)
+                [{ key: 'female_player_fallback', frame: 0 }],
+            frameRate: 1,
+            repeat: 0
+        });
+        console.log('✅ Created female_jump_right animation');
+
+        // Left jump animation using frame 7
+        this.anims.create({
+            key: 'female_jump_left',
+            frames: this.textures.exists('female_player') ? 
+                [{ key: 'female_player', frame: 7 }] : // Frame 8 in human counting (frame 7)
+                [{ key: 'female_player_fallback', frame: 0 }],
+            frameRate: 1,
+            repeat: 0
+        });
+        console.log('✅ Created female_jump_left animation');
 
         // Bitcoin animation
         const bitcoinKey = this.textures.exists('bitcoin') ? 'bitcoin' : 'bitcoin_fallback';
@@ -1393,6 +1560,10 @@ class TitleScene extends Phaser.Scene {
         // Input
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+        
+        // Character selection display
+        this.createCharacterSelection();
         
         window.gameState.currentScene = 'title';
     }
@@ -1511,10 +1682,42 @@ class TitleScene extends Phaser.Scene {
 
     createDemoCharacter() {
         // Show animated player character on title screen
-        const playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
+        const selectedCharacter = window.gameState.selectedCharacter;
+        let playerKey, animKey;
+        
+        if (selectedCharacter === 'female') {
+            playerKey = this.textures.exists('female_player') ? 'female_player' : 'female_player_fallback';
+            animKey = 'female_walk_right';
+            console.log('🎭 Using female character with key:', playerKey);
+            
+            // Debug texture info
+            if (this.textures.exists('female_player')) {
+                const texture = this.textures.get('female_player');
+                console.log('🖼️ Female texture info:', {
+                    key: texture.key,
+                    frameTotal: texture.frameTotal,
+                    width: texture.width,
+                    height: texture.height
+                });
+            }
+        } else {
+            playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
+            animKey = 'player_walk';
+        }
+        
+        // Remove existing demo player if it exists
+        if (this.demoPlayer) {
+            this.demoPlayer.destroy();
+        }
+        
         this.demoPlayer = this.add.sprite(200, 400, playerKey);
-        this.demoPlayer.setScale(GAME_CONSTANTS.PLAYER.DEMO_SCALE);
-        this.demoPlayer.play('player_walk');
+        // Apply proper scaling based on character
+        if (selectedCharacter === 'female') {
+            this.demoPlayer.setScale(GAME_CONSTANTS.PLAYER.DEMO_SCALE); // Use same demo scale as Andy
+        } else {
+            this.demoPlayer.setScale(GAME_CONSTANTS.PLAYER.DEMO_SCALE);
+        }
+        this.demoPlayer.play(animKey);
         
         // Make demo player bounce around
         this.tweens.add({
@@ -1525,6 +1728,27 @@ class TitleScene extends Phaser.Scene {
             repeat: -1,
             ease: 'Sine.easeInOut'
         });
+    }
+
+    createCharacterSelection() {
+        // Character selection UI
+        this.add.text(400, 300, 'CHARACTER SELECTION', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
+        
+        this.characterText = this.add.text(400, 325, `Current: ${window.gameState.selectedCharacter === 'andy' ? 'Andy' : 'Character 2'}`, {
+            fontSize: '16px',
+            fill: '#f7931a',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
+        
+        this.add.text(400, 345, 'Press C to toggle character', {
+            fontSize: '14px',
+            fill: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
     }
 
     startGame() {
@@ -1565,6 +1789,25 @@ class TitleScene extends Phaser.Scene {
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
             this.startGame();
         }
+        
+        // Character selection toggle
+        if (Phaser.Input.Keyboard.JustDown(this.cKey)) {
+            this.toggleCharacter();
+        }
+    }
+
+    toggleCharacter() {
+        // Toggle between characters
+        window.gameState.selectedCharacter = window.gameState.selectedCharacter === 'andy' ? 'female' : 'andy';
+        
+        // Update UI text
+        this.characterText.setText(`Current: ${window.gameState.selectedCharacter === 'andy' ? 'Andy' : 'Character 2'}`);
+        
+        // Update demo character
+        this.createDemoCharacter();
+        
+        // Play UI sound
+        this.soundManager.playUIClickSound();
     }
 }
 
@@ -1963,16 +2206,69 @@ class GameScene extends Phaser.Scene {
     }
 
     createPlayer() {
-        const playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
-        this.player = this.physics.add.sprite(GAME_CONSTANTS.PLAYER.START_X, GAME_CONSTANTS.PLAYER.START_Y, playerKey); // Start on ground level
-        this.player.setScale(GAME_CONSTANTS.PLAYER.SCALE);
-        this.player.setBounce(GAME_CONSTANTS.PLAYER.BOUNCE); // Reduced bounce for more realistic physics
+        const selectedCharacter = window.gameState.selectedCharacter;
+        let playerKey;
+        
+        console.log('🎮 Creating player with character:', selectedCharacter);
+        console.log('🖼️ Female player texture exists:', this.textures.exists('female_player'));
+        console.log('🖼️ Andy player texture exists:', this.textures.exists('player'));
+        
+        if (selectedCharacter === 'female') {
+            playerKey = this.textures.exists('female_player') ? 'female_player' : 'female_player_fallback';
+        } else {
+            playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
+        }
+        
+        console.log('🔑 Using player key:', playerKey);
+        
+        this.player = this.physics.add.sprite(GAME_CONSTANTS.PLAYER.START_X, GAME_CONSTANTS.PLAYER.START_Y, playerKey);
+        
+        console.log('🎮 Player sprite created:', this.player);
+        console.log('🎮 Player visible:', this.player.visible);
+        console.log('🎮 Player alpha:', this.player.alpha);
+        console.log('🎮 Player texture key:', this.player.texture.key);
+        
+        // Set appropriate scaling based on character
+        if (selectedCharacter === 'female') {
+            this.player.setScale(GAME_CONSTANTS.PLAYER.SCALE); // Use same scale as Andy
+            console.log('👩 Female character - using Andy scale:', GAME_CONSTANTS.PLAYER.SCALE);
+        } else {
+            this.player.setScale(GAME_CONSTANTS.PLAYER.SCALE);
+            console.log('👨 Male character - set scale to', GAME_CONSTANTS.PLAYER.SCALE);
+        }
+        
+        console.log('📏 Final player scale:', this.player.scaleX, this.player.scaleY);
+        console.log('📍 Player position:', this.player.x, this.player.y);
+        
+        this.player.setBounce(GAME_CONSTANTS.PLAYER.BOUNCE);
         this.player.setCollideWorldBounds(true);
-        this.player.body.setSize(200, 400, true);
+        
+        // Set appropriate hitbox based on character
+        if (selectedCharacter === 'female') {
+            this.player.body.setSize(200, 400, true); // Use same hitbox as Andy
+            
+            // Add event listener for animation changes to adjust offset
+            this.player.on('animationstart', (anim) => {
+                if (anim.key.includes('left')) {
+                    this.player.body.setOffset(0, -60); // Larger offset for left-facing animations
+                } else {
+                    this.player.body.setOffset(0, -40); // Normal offset for right-facing
+                }
+                console.log('🎬 Animation changed:', anim.key, 'Offset adjusted');
+            });
+            
+            console.log('📦 Female hitbox set with dynamic offset');
+        } else {
+            this.player.body.setSize(200, 400, true); // Original Andy hitbox
+            console.log('📦 Andy hitbox set to 200x400');
+        }
         
         // Set max velocity to prevent flying
         this.player.body.setMaxVelocity(GAME_CONSTANTS.PLAYER.MAX_VELOCITY_X, GAME_CONSTANTS.PLAYER.MAX_VELOCITY_Y);
         this.player.body.setDragX(300); // Add air resistance
+        
+        // Track player facing direction
+        this.playerFacingRight = true;
     }
 
     createBitcoins() {
@@ -2805,17 +3101,45 @@ class GameScene extends Phaser.Scene {
                          (this.isMobile && this.mobileControls.jump);
         
         // Player movement
+        const selectedCharacter = window.gameState.selectedCharacter;
+        
         if (leftPressed) {
             this.player.setVelocityX(-GAME_CONSTANTS.PLAYER.SPEED);
-            this.player.play('player_walk', true);
-            this.player.setFlipX(true);
+            this.playerFacingRight = false;
+            
+            // Use appropriate walk animation
+            if (selectedCharacter === 'female') {
+                this.player.play('female_walk_left', true);
+                this.player.setFlipX(false); // Don't flip, use left-facing frames
+                console.log('🎬 Playing female walk left animation');
+            } else {
+                this.player.play('player_walk', true);
+                this.player.setFlipX(true);
+            }
         } else if (rightPressed) {
             this.player.setVelocityX(GAME_CONSTANTS.PLAYER.SPEED);
-            this.player.play('player_walk', true);
-            this.player.setFlipX(false);
+            this.playerFacingRight = true;
+            
+            // Use appropriate walk animation
+            if (selectedCharacter === 'female') {
+                this.player.play('female_walk_right', true);
+                this.player.setFlipX(false); // Don't flip, use right-facing frames
+            } else {
+                this.player.play('player_walk', true);
+                this.player.setFlipX(false);
+            }
         } else {
             this.player.setVelocityX(0);
-            this.player.play('player_idle', true);
+            
+                         // Use appropriate idle animation (only if not jumping)
+             if (this.player.body.touching.down) {
+                 if (selectedCharacter === 'female') {
+                     console.log('🎬 Playing female_idle animation');
+                     this.player.play('female_idle', true);
+                 } else {
+                     this.player.play('player_idle', true);
+                 }
+             }
         }
         
         // Enhanced jumping mechanics with double jump support - Phase 3.2
@@ -2825,6 +3149,20 @@ class GameScene extends Phaser.Scene {
                 this.player.setVelocityY(this.jumpForce);
                 this.canJump = false;
                 this.jumpTimer = this.time.now + 200; // Prevent double jumping for 200ms
+                
+                // Play jump animation for female character
+                if (selectedCharacter === 'female') {
+                    // Use static jump frame if not moving, directional if moving
+                    const isMoving = Math.abs(this.player.body.velocity.x) > 10;
+                    if (isMoving) {
+                        const jumpAnim = this.playerFacingRight ? 'female_jump_right' : 'female_jump_left';
+                        this.player.play(jumpAnim, true);
+                        console.log('🎬 Playing directional jump:', jumpAnim);
+                    } else {
+                        this.player.play('female_jump', true);
+                        console.log('🎬 Playing static jump');
+                    }
+                }
                 
                 // Sound effect - Phase 3.1 with immediate activation
                 console.log('🚀 About to play jump sound - audio context state:', this.soundManager.audioContext ? this.soundManager.audioContext.state : 'No context');
@@ -2871,6 +3209,12 @@ class GameScene extends Phaser.Scene {
                 this.canJump = false;
                 this.jumpTimer = this.time.now + 200;
                 
+                // Play directional jump animation for female character (double jump)
+                if (selectedCharacter === 'female') {
+                    const jumpAnim = this.playerFacingRight ? 'female_jump_right' : 'female_jump_left';
+                    this.player.play(jumpAnim, true);
+                }
+                
                 // Enhanced sound and effects for double jump
                 console.log('🚀 About to play double jump sound - audio context state:', this.soundManager.audioContext ? this.soundManager.audioContext.state : 'No context');
                 this.soundManager.forceResumeAudio(); // Ensure audio context is active
@@ -2890,6 +3234,23 @@ class GameScene extends Phaser.Scene {
         if (this.player.body.touching.down && this.time.now > this.jumpTimer) {
             this.canJump = true;
             this.doubleJumpUsed = false; // Reset double jump when landing
+            
+            // Return to appropriate animation when landing
+            if (selectedCharacter === 'female') {
+                if (Math.abs(this.player.body.velocity.x) > 10) {
+                    // Use appropriate directional walk animation
+                    const walkAnim = this.playerFacingRight ? 'female_walk_right' : 'female_walk_left';
+                    this.player.play(walkAnim, true);
+                } else {
+                    this.player.play('female_idle', true);
+                }
+            } else {
+                if (Math.abs(this.player.body.velocity.x) > 10) {
+                    this.player.play('player_walk', true);
+                } else {
+                    this.player.play('player_idle', true);
+                }
+            }
         }
         
         // Pause toggle

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprite Test</title>
+    <style>
+        body {
+            background: #333;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .sprite-container {
+            border: 2px solid #fff;
+            display: inline-block;
+            margin: 10px;
+            padding: 10px;
+        }
+        img {
+            image-rendering: pixelated;
+            background: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sprite Loading Test</h1>
+    
+    <div class="sprite-container">
+        <h3>SydSprite.png (Original Size)</h3>
+        <img id="sydSprite" src="assets/images/SydSprite.png" alt="Syd Sprite">
+    </div>
+    
+    <div class="sprite-container">
+        <h3>SydSprite.png (Scaled 4x)</h3>
+        <img id="sydSprite4x" src="assets/images/SydSprite.png" alt="Syd Sprite 4x" style="transform: scale(4);">
+    </div>
+    
+    <div class="sprite-container">
+        <h3>AndySprite.png (For comparison)</h3>
+        <img id="andySprite" src="assets/images/AndySprite.png" alt="Andy Sprite" style="max-width: 200px;">
+    </div>
+    
+    <div id="info">
+        <h3>Loading Info:</h3>
+        <div id="sydInfo">SydSprite: Loading...</div>
+        <div id="andyInfo">AndySprite: Loading...</div>
+    </div>
+
+    <script>
+        const sydSprite = document.getElementById('sydSprite');
+        const andySprite = document.getElementById('andySprite');
+        const sydInfo = document.getElementById('sydInfo');
+        const andyInfo = document.getElementById('andyInfo');
+
+        sydSprite.onload = function() {
+            sydInfo.innerHTML = `✅ SydSprite: ${this.naturalWidth}x${this.naturalHeight} pixels`;
+            console.log('SydSprite loaded:', this.naturalWidth, 'x', this.naturalHeight);
+        };
+
+        sydSprite.onerror = function() {
+            sydInfo.innerHTML = '❌ SydSprite: Failed to load';
+            console.error('SydSprite failed to load');
+        };
+
+        andySprite.onload = function() {
+            andyInfo.innerHTML = `✅ AndySprite: ${this.naturalWidth}x${this.naturalHeight} pixels`;
+            console.log('AndySprite loaded:', this.naturalWidth, 'x', this.naturalHeight);
+        };
+
+        andySprite.onerror = function() {
+            andyInfo.innerHTML = '❌ AndySprite: Failed to load';
+            console.error('AndySprite failed to load');
+        };
+    </script>
+</body>
+</html> 
