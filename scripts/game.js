@@ -1,12 +1,106 @@
 // Bitcoin Adventure - Optimized Standalone Web Game
 // Clean architecture with essential features only
 
+// Game Constants - Phase 2.1: Extract Magic Numbers to Constants
+const GAME_CONSTANTS = {
+    // World dimensions
+    WORLD: {
+        WIDTH: 4000,
+        HEIGHT: 600
+    },
+    
+    // Screen dimensions
+    SCREEN: {
+        WIDTH: 800,
+        HEIGHT: 600
+    },
+    
+    // Player properties
+    PLAYER: {
+        SCALE: 0.12,
+        SPEED: 160,
+        JUMP_FORCE: -500,
+        BOUNCE: 0.1,
+        MAX_VELOCITY_X: 200,
+        MAX_VELOCITY_Y: 600,
+        START_X: 100,
+        START_Y: 530,
+        DEMO_SCALE: 0.15
+    },
+    
+    // Bitcoin properties  
+    BITCOIN: {
+        SCALE: 0.06,
+        POINTS: 10
+    },
+    
+    // Enemy properties
+    ENEMY: {
+        SCALE: 1.7,
+        SPEED: 100,
+        BOUNCE: 0.1,
+        MAX_VELOCITY_X: 120,
+        MAX_VELOCITY_Y: 600
+    },
+    
+    // Physics settings
+    PHYSICS: {
+        GRAVITY: 800,
+        BOUNCE: 0.1
+    },
+    
+    // Gameplay values
+    GAMEPLAY: {
+        INITIAL_LIVES: 3,
+        COLLECTION_BONUS: 100
+    },
+    
+    // Platform settings
+    PLATFORM: {
+        TEXTURE_WIDTH: 100,
+        TEXTURE_HEIGHT: 32
+    },
+    
+    // Animation and timing
+    ANIMATION: {
+        TWEEN_DURATION: 1000,
+        INVINCIBILITY_DURATION: 1000
+    },
+    
+    // UI scaling
+    UI: {
+        BUTTON_HOVER_SCALE: 1.1,
+        BUTTON_NORMAL_SCALE: 1
+    },
+    
+    // Power-up properties - Phase 3.2
+    POWERUP: {
+        SCALE: 0.08,
+        DURATION: 10000, // 10 seconds
+        SPAWN_CHANCE: 0.3, // 30% chance per bitcoin collected
+        DOUBLE_JUMP_COLOR: 0x00ff00, // Green glow
+        COLLECTION_POINTS: 25,
+        PULSE_SPEED: 2000 // Pulsing animation speed
+    },
+    
+    // Particle effects - Phase 3.3
+    PARTICLES: {
+        BITCOIN_BURST_COUNT: 12, // Number of particles per bitcoin collection
+        BITCOIN_COLORS: [0xf7931a, 0xffd700, 0xffcc00, 0xff9900], // Bitcoin gold variants
+        PARTICLE_LIFETIME: 800, // Milliseconds
+        PARTICLE_SPEED: { min: 50, max: 150 },
+        PARTICLE_SIZE: { start: 4, end: 1 },
+        GRAVITY: 200,
+        BOUNCE: 0.3
+    }
+};
+
 // Game configuration
 const config = {
     type: Phaser.AUTO,
     parent: 'game',
-    width: 800,
-    height: 600,
+    width: GAME_CONSTANTS.SCREEN.WIDTH,
+    height: GAME_CONSTANTS.SCREEN.HEIGHT,
     backgroundColor: '#2d2d2d',
     scale: {
         mode: Phaser.Scale.FIT,
@@ -16,15 +110,15 @@ const config = {
             height: 240
         },
         max: {
-            width: 1600,
-            height: 1200
+            width: GAME_CONSTANTS.SCREEN.WIDTH * 2,
+            height: GAME_CONSTANTS.SCREEN.HEIGHT * 2
         },
         fullscreenTarget: 'game'
     },
     physics: {
         default: 'arcade',
         arcade: {
-            gravity: { y: 800 }, // Increased gravity for more realistic physics
+            gravity: { y: GAME_CONSTANTS.PHYSICS.GRAVITY }, // Increased gravity for more realistic physics
             debug: false
         }
     },
@@ -44,16 +138,850 @@ const config = {
     scene: []
 };
 
-// Global game state
+// Enhanced High Score & Achievement System - Phase 4.2
+class HighScoreManager {
+    constructor() {
+        this.storageKey = 'bitcoinAdventureData';
+        this.data = this.loadData();
+    }
+    
+    loadData() {
+        try {
+            const saved = localStorage.getItem(this.storageKey);
+            if (saved) {
+                const data = JSON.parse(saved);
+                // Ensure all required properties exist
+                return {
+                    highScores: data.highScores || [],
+                    totalGamesPlayed: data.totalGamesPlayed || 0,
+                    totalBitcoinsCollected: data.totalBitcoinsCollected || 0,
+                    totalJumps: data.totalJumps || 0,
+                    totalDoubleJumps: data.totalDoubleJumps || 0,
+                    totalPowerUpsCollected: data.totalPowerUpsCollected || 0,
+                    achievements: data.achievements || [],
+                    bestCompletionTime: data.bestCompletionTime || null,
+                    perfectLevels: data.perfectLevels || [],
+                    lastPlayed: data.lastPlayed || Date.now(),
+                    ...data
+                };
+            }
+        } catch (error) {
+            console.warn('Error loading high score data:', error);
+        }
+        
+        // Default data structure
+        return {
+            highScores: [],
+            totalGamesPlayed: 0,
+            totalBitcoinsCollected: 0,
+            totalJumps: 0,
+            totalDoubleJumps: 0,
+            totalPowerUpsCollected: 0,
+            achievements: [],
+            bestCompletionTime: null,
+            perfectLevels: [],
+            lastPlayed: Date.now()
+        };
+    }
+    
+    saveData() {
+        try {
+            this.data.lastPlayed = Date.now();
+            localStorage.setItem(this.storageKey, JSON.stringify(this.data));
+            console.log('📊 High score data saved');
+        } catch (error) {
+            console.error('Error saving high score data:', error);
+        }
+    }
+    
+    addHighScore(score, level, completionTime, bitcoinsCollected, livesRemaining) {
+        const scoreEntry = {
+            score,
+            level,
+            completionTime,
+            bitcoinsCollected,
+            livesRemaining,
+            date: new Date().toISOString(),
+            perfect: livesRemaining === GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES
+        };
+        
+        this.data.highScores.push(scoreEntry);
+        this.data.highScores.sort((a, b) => b.score - a.score);
+        this.data.highScores = this.data.highScores.slice(0, 10); // Keep top 10
+        
+        // Update best completion time
+        if (!this.data.bestCompletionTime || completionTime < this.data.bestCompletionTime) {
+            this.data.bestCompletionTime = completionTime;
+        }
+        
+        this.data.totalGamesPlayed++;
+        this.saveData();
+        
+        // Check for new achievements
+        const newAchievements = this.checkAchievements(scoreEntry);
+        
+        return {
+            rank: this.getScoreRank(score),
+            newAchievements
+        };
+    }
+    
+    getScoreRank(score) {
+        const rank = this.data.highScores.findIndex(entry => entry.score === score) + 1;
+        return rank <= 10 ? rank : null;
+    }
+    
+    recordBitcoinCollection() {
+        this.data.totalBitcoinsCollected++;
+    }
+    
+    recordJump(isDoubleJump = false) {
+        this.data.totalJumps++;
+        if (isDoubleJump) {
+            this.data.totalDoubleJumps++;
+        }
+    }
+    
+    recordPowerUpCollection() {
+        this.data.totalPowerUpsCollected++;
+    }
+    
+    checkAchievements(scoreEntry) {
+        const newAchievements = [];
+        
+        // First win
+        if (this.data.totalGamesPlayed === 1 && !this.hasAchievement('first_win')) {
+            newAchievements.push({
+                id: 'first_win',
+                name: 'First Victory',
+                description: 'Complete your first game',
+                date: new Date().toISOString()
+            });
+        }
+        
+        // Perfect game
+        if (scoreEntry.perfect && !this.hasAchievement('perfect_game')) {
+            newAchievements.push({
+                id: 'perfect_game',
+                name: 'Flawless Victory',
+                description: 'Complete the game without losing a life',
+                date: new Date().toISOString()
+            });
+        }
+        
+        // High score milestones
+        const scoreMilestones = [
+            { threshold: 500, id: 'score_500', name: 'Rising Star', description: 'Score 500 points' },
+            { threshold: 1000, id: 'score_1000', name: 'Bitcoin Master', description: 'Score 1000 points' },
+            { threshold: 1500, id: 'score_1500', name: 'Crypto Legend', description: 'Score 1500 points' }
+        ];
+        
+        scoreMilestones.forEach(milestone => {
+            if (scoreEntry.score >= milestone.threshold && !this.hasAchievement(milestone.id)) {
+                newAchievements.push({
+                    id: milestone.id,
+                    name: milestone.name,
+                    description: milestone.description,
+                    date: new Date().toISOString()
+                });
+            }
+        });
+        
+        // Collection milestones
+        const collectionMilestones = [
+            { threshold: 50, id: 'collect_50', name: 'Collector', description: 'Collect 50 bitcoins total' },
+            { threshold: 100, id: 'collect_100', name: 'Hoarder', description: 'Collect 100 bitcoins total' },
+            { threshold: 200, id: 'collect_200', name: 'Bitcoin Whale', description: 'Collect 200 bitcoins total' }
+        ];
+        
+        collectionMilestones.forEach(milestone => {
+            if (this.data.totalBitcoinsCollected >= milestone.threshold && !this.hasAchievement(milestone.id)) {
+                newAchievements.push({
+                    id: milestone.id,
+                    name: milestone.name,
+                    description: milestone.description,
+                    date: new Date().toISOString()
+                });
+            }
+        });
+        
+        // Add new achievements
+        newAchievements.forEach(achievement => {
+            this.data.achievements.push(achievement);
+            console.log('🏆 New achievement unlocked:', achievement.name);
+        });
+        
+        if (newAchievements.length > 0) {
+            this.saveData();
+        }
+        
+        return newAchievements;
+    }
+    
+    hasAchievement(id) {
+        return this.data.achievements.some(achievement => achievement.id === id);
+    }
+    
+    getHighScores() {
+        return this.data.highScores;
+    }
+    
+    getStats() {
+        return {
+            gamesPlayed: this.data.totalGamesPlayed,
+            bitcoinsCollected: this.data.totalBitcoinsCollected,
+            totalJumps: this.data.totalJumps,
+            doubleJumps: this.data.totalDoubleJumps,
+            powerUpsCollected: this.data.totalPowerUpsCollected,
+            achievements: this.data.achievements.length,
+            bestTime: this.data.bestCompletionTime,
+            topScore: this.data.highScores[0]?.score || 0
+        };
+    }
+}
+
+// Global game state management with enhanced scoring
+window.highScoreManager = new HighScoreManager();
+
 window.gameState = {
     isPaused: false,
     score: 0,
     level: 1,
-    lives: 3,
+    lives: GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES,
     soundEnabled: true,
-    highScore: parseInt(localStorage.getItem('bitcoinAdventureHighScore') || '0'),
-    currentScene: 'title'
+    highScore: window.highScoreManager.getStats().topScore,
+    currentScene: 'title',
+    gameStartTime: null,
+    currentGameBitcoins: 0
 };
+
+// Power-up System - Phase 3.2
+class PowerUp extends Phaser.GameObjects.Sprite {
+    constructor(scene, x, y, type) {
+        // Create a temporary texture for the power-up if it doesn't exist
+        if (!scene.textures.exists('powerup_' + type)) {
+            scene.createPowerUpTexture(type);
+        }
+        
+        super(scene, x, y, 'powerup_' + type);
+        
+        this.scene = scene;
+        this.powerType = type;
+        this.isCollected = false;
+        
+        // Add to scene
+        scene.add.existing(this);
+        scene.physics.add.existing(this);
+        
+        // Set properties
+        this.setScale(GAME_CONSTANTS.POWERUP.SCALE);
+        this.body.setSize(this.width * 0.8, this.height * 0.8); // Slightly smaller hitbox
+        
+        // Visual effects
+        this.createVisualEffects();
+        
+        // Auto-expire after some time
+        scene.time.delayedCall(30000, () => {
+            if (!this.isCollected) {
+                this.destroy();
+            }
+        });
+    }
+    
+    createVisualEffects() {
+        // Pulsing glow effect
+        this.scene.tweens.add({
+            targets: this,
+            scaleX: GAME_CONSTANTS.POWERUP.SCALE * 1.2,
+            scaleY: GAME_CONSTANTS.POWERUP.SCALE * 1.2,
+            duration: GAME_CONSTANTS.POWERUP.PULSE_SPEED / 2,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Floating animation
+        this.scene.tweens.add({
+            targets: this,
+            y: this.y - 10,
+            duration: GAME_CONSTANTS.POWERUP.PULSE_SPEED,
+            yoyo: true,
+            repeat: -1,
+            ease: 'Sine.easeInOut'
+        });
+        
+        // Color tint based on power-up type
+        if (this.powerType === 'doubleJump') {
+            this.setTint(GAME_CONSTANTS.POWERUP.DOUBLE_JUMP_COLOR);
+        }
+    }
+    
+    collect(player) {
+        if (this.isCollected) return;
+        
+        this.isCollected = true;
+        
+        // Apply power-up effect based on type
+        switch (this.powerType) {
+            case 'doubleJump':
+                this.scene.activateDoubleJump();
+                break;
+        }
+        
+        // Visual collection effect
+        this.scene.createPowerUpCollectionEffect(this.x, this.y, this.powerType);
+        
+        // Particle effects - Phase 3.3
+        this.scene.createPowerUpParticleEffect(this.x, this.y, this.powerType);
+        
+        // Special power-up sound effect - Phase 3.2
+        this.scene.soundManager.forceResumeAudio(); // Ensure audio context is active
+        this.scene.soundManager.playPowerUpSound();
+        
+        // Points
+        this.scene.score += GAME_CONSTANTS.POWERUP.COLLECTION_POINTS;
+        this.scene.updateScoreDisplay();
+        
+        // Remove the power-up
+        this.destroy();
+    }
+}
+
+// Enhanced Sound Manager with Background Music - Phase 3.1 + Background Music
+class SoundManager {
+    constructor() {
+        this.audioContext = null;
+        this.masterVolume = 0.3;
+        this.musicVolume = 0.08; // Reduced background music volume
+        this.enabled = true;
+        this.musicEnabled = true;
+        this.backgroundMusic = null;
+        this.musicGainNode = null;
+        this.currentMusicUrl = null;
+        this.init();
+    }
+    
+    init() {
+        try {
+            // Create audio context
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // Handle browser autoplay policy - more aggressive approach
+            const resumeAudio = () => {
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().then(() => {
+                        console.log('Audio context resumed successfully');
+                    }).catch(err => {
+                        console.warn('Failed to resume audio context:', err);
+                    });
+                }
+                // Remove listeners after first successful interaction
+                document.removeEventListener('click', resumeAudio);
+                document.removeEventListener('keydown', resumeAudio);
+                document.removeEventListener('touchstart', resumeAudio);
+            };
+            
+            // Add multiple event listeners for better mobile support
+            document.addEventListener('click', resumeAudio);
+            document.addEventListener('keydown', resumeAudio);
+            document.addEventListener('touchstart', resumeAudio);
+            
+            // Try to resume immediately if possible
+            if (this.audioContext.state === 'suspended') {
+                console.log('Audio context suspended, waiting for user interaction...');
+            } else {
+                console.log('Audio context ready:', this.audioContext.state);
+            }
+        } catch (error) {
+            console.warn('Web Audio API not supported:', error);
+            this.enabled = false;
+        }
+    }
+    
+    // Generate coin collection sound
+    playCollectSound() {
+        if (!this.enabled || !this.audioContext) {
+            console.warn('🔇 Sound disabled or no audio context');
+            return;
+        }
+        
+        // Force audio context to resume before playing
+        this.forceResumeAudio();
+        
+        // Add a small delay to ensure audio context is active
+        setTimeout(() => {
+            if (this.audioContext.state !== 'running') {
+                console.warn('🔇 Audio context not running for collect sound:', this.audioContext.state);
+                return;
+            }
+            
+            try {
+                console.log('🪙 Playing collect sound');
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+        
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                // Rising tone for positive feedback
+                oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(1200, this.audioContext.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.3, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.15);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.15);
+            } catch (error) {
+                console.error('❌ Error playing collect sound:', error);
+            }
+        }, 10); // Minimal delay to ensure audio context is ready
+    }
+    
+    // Generate enemy hit sound
+    playHitSound() {
+        if (!this.enabled || !this.audioContext) {
+            console.warn('🔇 Hit sound disabled or no audio context');
+            return;
+        }
+        
+        // Force audio context to resume before playing
+        this.forceResumeAudio();
+        
+        setTimeout(() => {
+            if (this.audioContext.state !== 'running') {
+                console.warn('🔇 Audio context not running for hit sound:', this.audioContext.state);
+                return;
+            }
+            
+            try {
+                console.log('💥 Playing hit sound');
+        
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                // Harsh descending tone for negative feedback
+                oscillator.frequency.setValueAtTime(300, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, this.audioContext.currentTime + 0.2);
+                oscillator.type = 'sawtooth';
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.4, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.25);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.25);
+            } catch (error) {
+                console.error('❌ Error playing hit sound:', error);
+            }
+        }, 10); // Minimal delay to ensure audio context is ready
+    }
+    
+    // Generate jump sound
+    playJumpSound() {
+        if (!this.enabled || !this.audioContext) {
+            console.warn('🔇 Jump sound disabled or no audio context');
+            return;
+        }
+        
+        // Force audio context to resume before playing
+        this.forceResumeAudio();
+        
+        setTimeout(() => {
+            if (this.audioContext.state !== 'running') {
+                console.warn('🔇 Audio context not running for jump sound:', this.audioContext.state);
+                return;
+            }
+            
+            try {
+                console.log('🚀 Playing jump sound');
+        
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                // Quick rising tone for jump
+                oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(600, this.audioContext.currentTime + 0.1);
+                oscillator.type = 'triangle';
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.2, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.12);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.12);
+            } catch (error) {
+                console.error('❌ Error playing jump sound:', error);
+            }
+        }, 10); // Minimal delay to ensure audio context is ready
+    }
+    
+    // Generate victory sound
+    playVictorySound() {
+        if (!this.enabled || !this.audioContext) return;
+        
+        const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+        notes.forEach((freq, index) => {
+            setTimeout(() => {
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.3, this.audioContext.currentTime + 0.01);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.3);
+                
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + 0.3);
+            }, index * 150);
+        });
+    }
+    
+    // Generate game over sound
+    playGameOverSound() {
+        if (!this.enabled || !this.audioContext) return;
+        
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        // Descending dramatic tone
+        oscillator.frequency.setValueAtTime(400, this.audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(200, this.audioContext.currentTime + 0.5);
+        oscillator.type = 'square';
+        
+        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.4, this.audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.6);
+        
+        oscillator.start(this.audioContext.currentTime);
+        oscillator.stop(this.audioContext.currentTime + 0.6);
+    }
+    
+    // Generate UI click sound
+    playUIClickSound() {
+        if (!this.enabled || !this.audioContext) return;
+        
+        const oscillator = this.audioContext.createOscillator();
+        const gainNode = this.audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(this.audioContext.destination);
+        
+        // Quick pop sound for UI feedback
+        oscillator.frequency.setValueAtTime(800, this.audioContext.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(400, this.audioContext.currentTime + 0.05);
+        oscillator.type = 'square';
+        
+        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.15, this.audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.08);
+        
+        oscillator.start(this.audioContext.currentTime);
+        oscillator.stop(this.audioContext.currentTime + 0.08);
+    }
+    
+    // Generate power-up collection sound - Phase 3.2
+    playPowerUpSound() {
+        if (!this.enabled || !this.audioContext) {
+            console.warn('🔇 Power-up sound disabled or no audio context');
+            return;
+        }
+        
+        // Force audio context to resume before playing
+        this.forceResumeAudio();
+        
+        setTimeout(() => {
+            if (this.audioContext.state !== 'running') {
+                console.warn('🔇 Audio context not running for power-up sound:', this.audioContext.state);
+                return;
+            }
+            
+            try {
+                console.log('⭐ Playing power-up sound');
+        
+                // Create a magical ascending arpeggio
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51]; // C5, E5, G5, C6, E6
+                notes.forEach((freq, index) => {
+                    setTimeout(() => {
+                        const oscillator = this.audioContext.createOscillator();
+                        const gainNode = this.audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(this.audioContext.destination);
+                        
+                        oscillator.frequency.setValueAtTime(freq, this.audioContext.currentTime);
+                        oscillator.type = 'triangle';
+                        
+                        gainNode.gain.setValueAtTime(0, this.audioContext.currentTime);
+                        gainNode.gain.linearRampToValueAtTime(this.masterVolume * 0.25, this.audioContext.currentTime + 0.01);
+                        gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioContext.currentTime + 0.2);
+                        
+                        oscillator.start(this.audioContext.currentTime);
+                        oscillator.stop(this.audioContext.currentTime + 0.2);
+                    }, index * 50);
+                });
+            } catch (error) {
+                console.error('❌ Error playing power-up sound:', error);
+            }
+        }, 10); // Minimal delay to ensure audio context is ready
+    }
+    
+    // Force resume audio context - Phase 3.1 fix
+    forceResumeAudio() {
+        if (this.audioContext) {
+            if (this.audioContext.state === 'suspended') {
+                console.log('Attempting to resume suspended audio context...');
+                this.audioContext.resume().then(() => {
+                    console.log('✅ Audio context manually resumed');
+                }).catch(err => {
+                    console.warn('❌ Failed to manually resume audio context:', err);
+                });
+            } else if (this.audioContext.state === 'running') {
+                console.log('✅ Audio context already running');
+            } else {
+                console.log('Audio context state:', this.audioContext.state);
+            }
+        } else {
+            console.warn('❌ No audio context available');
+        }
+    }
+    
+    // Load and play background music
+    async loadBackgroundMusic(url) {
+        if (!this.enabled) {
+            console.warn('Cannot load background music: audio system disabled');
+            return;
+        }
+
+        try {
+            // Stop current music if playing
+            this.stopBackgroundMusic();
+            
+            console.log('🎵 Loading background music:', url);
+            this.currentMusicUrl = url;
+            
+            // Create audio element for background music (easier than Web Audio for files)
+            this.backgroundMusic = new Audio(url);
+            this.backgroundMusic.loop = true;
+            this.backgroundMusic.volume = this.musicVolume;
+            this.backgroundMusic.preload = 'auto';
+            
+            // Return a promise that resolves when the music is ready
+            return new Promise((resolve, reject) => {
+                // Handle loading events
+                this.backgroundMusic.addEventListener('canplaythrough', () => {
+                    console.log('✅ Background music loaded and ready');
+                    resolve();
+                }, { once: true });
+                
+                this.backgroundMusic.addEventListener('error', (e) => {
+                    console.error('❌ Error loading background music:', e);
+                    this.backgroundMusic = null;
+                    reject(e);
+                }, { once: true });
+                
+                // Timeout after 10 seconds
+                setTimeout(() => {
+                    console.warn('⏰ Background music loading timeout');
+                    resolve(); // Don't reject, just continue without music
+                }, 10000);
+            });
+            
+        } catch (error) {
+            console.error('❌ Failed to load background music:', error);
+            this.backgroundMusic = null;
+            throw error;
+        }
+    }
+    
+    // Play background music
+    playBackgroundMusic() {
+        if (!this.musicEnabled) {
+            console.warn('🔇 Cannot play background music: music disabled');
+            return;
+        }
+        
+        if (!this.backgroundMusic) {
+            console.warn('🔇 Cannot play background music: not loaded');
+            return;
+        }
+        
+        try {
+            // Resume audio context if needed
+            this.forceResumeAudio();
+            
+            console.log('🎵 Starting background music...');
+            this.backgroundMusic.currentTime = 0; // Start from beginning
+            this.backgroundMusic.play().then(() => {
+                console.log('✅ Background music playing successfully');
+            }).catch(error => {
+                console.warn('❌ Failed to play background music:', error);
+                // Try again after a short delay
+                setTimeout(() => {
+                    console.log('🔄 Retrying background music...');
+                    this.backgroundMusic.play().catch(retryError => {
+                        console.error('❌ Retry failed:', retryError);
+                    });
+                }, 1000);
+            });
+        } catch (error) {
+            console.error('❌ Error playing background music:', error);
+        }
+    }
+    
+    // Stop background music
+    stopBackgroundMusic() {
+        if (this.backgroundMusic) {
+            console.log('Stopping background music');
+            this.backgroundMusic.pause();
+            this.backgroundMusic.currentTime = 0;
+        }
+    }
+    
+    // Pause background music
+    pauseBackgroundMusic() {
+        if (this.backgroundMusic && !this.backgroundMusic.paused) {
+            console.log('Pausing background music');
+            this.backgroundMusic.pause();
+        }
+    }
+    
+    // Resume background music
+    resumeBackgroundMusic() {
+        if (this.backgroundMusic && this.backgroundMusic.paused && this.musicEnabled) {
+            console.log('Resuming background music');
+            this.backgroundMusic.play().catch(error => {
+                console.warn('Failed to resume background music:', error);
+            });
+        }
+    }
+    
+    // Set music volume
+    setMusicVolume(volume) {
+        this.musicVolume = Math.max(0, Math.min(1, volume));
+        if (this.backgroundMusic) {
+            this.backgroundMusic.volume = this.musicVolume;
+        }
+    }
+    
+    // Toggle music on/off
+    toggleMusic() {
+        this.musicEnabled = !this.musicEnabled;
+        if (this.musicEnabled) {
+            this.resumeBackgroundMusic();
+        } else {
+            this.pauseBackgroundMusic();
+        }
+        return this.musicEnabled;
+    }
+
+    // Test audio system - Phase 3.1 debugging
+    testAudio() {
+        console.log('🔊 Testing audio system:');
+        console.log('- Enabled:', this.enabled);
+        console.log('- Audio Context:', this.audioContext ? 'Available' : 'Missing');
+        console.log('- Audio Context State:', this.audioContext ? this.audioContext.state : 'N/A');
+        
+        if (this.audioContext && this.enabled) {
+            this.forceResumeAudio();
+            setTimeout(() => {
+                console.log('🎵 Playing test sound...');
+                this.playCollectSound();
+            }, 100);
+        }
+    }
+
+    // Toggle sound on/off
+    toggleSound() {
+        this.enabled = !this.enabled;
+        return this.enabled;
+    }
+}
+
+// Sprite Pool Class - Phase 2.2: Add Sprite Pooling for Performance
+class SpritePool {
+    constructor(scene, initialSize) {
+        this.scene = scene;
+        this.pool = [];
+        this.activeSprites = [];
+        
+        // Pre-create sprites for the pool
+        for (let i = 0; i < initialSize; i++) {
+            this.createPooledSprite();
+        }
+    }
+    
+    createPooledSprite() {
+        // Create text sprite for "+10" collection effects
+        const sprite = this.scene.add.text(0, 0, '+10', {
+            fontSize: '24px',
+            fill: '#f7931a',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
+        
+        // Initially disable and hide the sprite
+        sprite.setVisible(false);
+        sprite.setActive(false);
+        
+        // Add to pool
+        this.pool.push(sprite);
+        return sprite;
+    }
+    
+    get() {
+        let sprite;
+        
+        if (this.pool.length > 0) {
+            // Reuse existing sprite from pool
+            sprite = this.pool.pop();
+        } else {
+            // Create new sprite if pool is empty
+            sprite = this.createPooledSprite();
+        }
+        
+        // Activate and show the sprite
+        sprite.setVisible(true);
+        sprite.setActive(true);
+        sprite.setAlpha(1); // Reset alpha for reuse
+        
+        // Track active sprites
+        this.activeSprites.push(sprite);
+        
+        return sprite;
+    }
+    
+    release(sprite) {
+        // Remove from active sprites
+        const index = this.activeSprites.indexOf(sprite);
+        if (index > -1) {
+            this.activeSprites.splice(index, 1);
+        }
+        
+        // Reset sprite state
+        sprite.setVisible(false);
+        sprite.setActive(false);
+        sprite.setPosition(0, 0);
+        sprite.setAlpha(1);
+        
+        // Return to pool for reuse
+        this.pool.push(sprite);
+    }
+}
 
 // Enhanced Title Scene
 class TitleScene extends Phaser.Scene {
@@ -62,46 +990,169 @@ class TitleScene extends Phaser.Scene {
         this.particles = null;
         this.titleTween = null;
         this.menuItems = [];
+        // Asset retry mechanism - Phase 1.3
+        this.failedAssets = new Set();
+        this.retryAttempts = new Map();
     }
 
     preload() {
-        this.createTemporaryAssets();
-        
-        // Enhanced loading with error handling
-        this.load.on('loaderror', (file) => {
-            console.warn('Asset failed to load:', file.key, 'using fallback');
-        });
+        try {
+            this.createTemporaryAssets();
+            
+            // Enhanced loading with retry mechanism - Phase 1.3
+            this.load.on('loaderror', (file) => {
+                console.warn('Asset failed to load:', file.key);
+                
+                // Track failed asset
+                this.failedAssets.add(file.key);
+                
+                // Get current retry count for this asset
+                const currentRetries = this.retryAttempts.get(file.key) || 0;
+                
+                if (currentRetries < 2) { // Max 2 retries per asset
+                    // Increment retry count
+                    this.retryAttempts.set(file.key, currentRetries + 1);
+                    
+                    console.log(`Retrying asset '${file.key}' (attempt ${currentRetries + 1}/2)`);
+                    
+                    // Retry after 1 second delay
+                    setTimeout(() => {
+                        try {
+                            // Retry loading the specific asset
+                            this.retryAssetLoad(file.key, file.url);
+                        } catch (retryError) {
+                            console.error(`Retry failed for ${file.key}:`, retryError);
+                        }
+                    }, 1000);
+                } else {
+                    console.warn(`Max retries reached for '${file.key}', using fallback`);
+                }
+            });
 
-        // Load game assets
-        this.load.image('background', 'assets/images/background.png');
-        this.load.spritesheet('player', 'assets/images/AndySprite.png', {
-            frameWidth: 341,
-            frameHeight: 512
-        });
-        this.load.spritesheet('enemy', 'assets/images/yellen.png', {
-            frameWidth: 32,
-            frameHeight: 48,
-            margin: 0,
-            spacing: 8
-        });
-        this.load.spritesheet('bitcoin', 'assets/images/BTC.png', {
-            frameWidth: 384,
-            frameHeight: 1024
-        });
+            // Handle successful asset loads (including retries)
+            this.load.on('filecomplete', (key, type, data) => {
+                if (this.failedAssets.has(key)) {
+                    const retryCount = this.retryAttempts.get(key) || 0;
+                    console.log(`Asset '${key}' loaded successfully after ${retryCount} retries`);
+                    // Remove from failed assets since it's now loaded
+                    this.failedAssets.delete(key);
+                }
+            });
 
-        // Progress tracking
-        this.load.on('progress', (value) => {
-            if (window.GameLoader) {
-                window.GameLoader.updateProgress(value);
+            // Load game assets with error handling
+            try {
+                this.load.image('background', 'assets/images/background.png');
+                this.load.spritesheet('player', 'assets/images/AndySprite.png', {
+                    frameWidth: 341,
+                    frameHeight: 512
+                });
+                this.load.spritesheet('enemy', 'assets/images/yellen.png', {
+                    frameWidth: 32,
+                    frameHeight: 48,
+                    margin: 0,
+                    spacing: 8
+                });
+                this.load.spritesheet('bitcoin', 'assets/images/BTC.png', {
+                    frameWidth: 384,
+                    frameHeight: 1024
+                });
+            } catch (loadError) {
+                console.error('Error loading assets:', loadError);
+                console.error('Game will use fallback assets only');
             }
-        });
+
+            // Progress tracking with error handling
+            this.load.on('progress', (value) => {
+                try {
+                    if (window.GameLoader) {
+                        window.GameLoader.updateProgress(value);
+                    }
+                } catch (progressError) {
+                    console.error('Error updating progress:', progressError);
+                }
+            });
+            
+            this.load.on('complete', () => {
+                try {
+                    // Report retry statistics - Phase 1.3
+                    this.reportRetryStatistics();
+                    
+                    if (window.GameLoader) {
+                        window.GameLoader.hideLoadingScreen();
+                    }
+                    this.createAnimations();
+                } catch (completeError) {
+                    console.error('Error on load complete:', completeError);
+                    console.error('Proceeding to title screen...');
+                    this.scene.start('TitleScene');
+                }
+            });
+        } catch (error) {
+            console.error('Critical error in preload:', error);
+            console.error('Returning to title screen...');
+            this.scene.start('TitleScene');
+        }
+    }
+
+    // Retry asset loading method - Phase 1.3
+    retryAssetLoad(assetKey, originalUrl) {
+        console.log(`Attempting to retry loading: ${assetKey}`);
         
-        this.load.on('complete', () => {
-            if (window.GameLoader) {
-                window.GameLoader.hideLoadingScreen();
+        try {
+            // Determine asset type and retry appropriately
+            switch (assetKey) {
+                case 'background':
+                    this.load.image(assetKey, originalUrl);
+                    break;
+                case 'player':
+                    this.load.spritesheet(assetKey, originalUrl, {
+                        frameWidth: 341,
+                        frameHeight: 512
+                    });
+                    break;
+                case 'enemy':
+                    this.load.spritesheet(assetKey, originalUrl, {
+                        frameWidth: 32,
+                        frameHeight: 48,
+                        margin: 0,
+                        spacing: 8
+                    });
+                    break;
+                case 'bitcoin':
+                    this.load.spritesheet(assetKey, originalUrl, {
+                        frameWidth: 384,
+                        frameHeight: 1024
+                    });
+                    break;
+                default:
+                    console.warn(`Unknown asset type for retry: ${assetKey}`);
+                    return;
             }
-            this.createAnimations();
-        });
+            
+            // Start the load for just this asset
+            this.load.start();
+            
+        } catch (error) {
+            console.error(`Error during retry of ${assetKey}:`, error);
+        }
+    }
+
+    // Report retry statistics - Phase 1.3
+    reportRetryStatistics() {
+        if (this.retryAttempts.size > 0) {
+            console.log('=== Asset Loading Retry Report ===');
+            this.retryAttempts.forEach((retries, assetKey) => {
+                const status = this.failedAssets.has(assetKey) ? 'FAILED (using fallback)' : 'SUCCESS';
+                console.log(`${assetKey}: ${retries} retries - ${status}`);
+            });
+            console.log('================================');
+        } else {
+            console.log('All assets loaded successfully on first attempt');
+        }
+        
+        if (this.failedAssets.size > 0) {
+            console.warn(`${this.failedAssets.size} assets using fallback graphics:`, Array.from(this.failedAssets));
+        }
     }
 
     createTemporaryAssets() {
@@ -110,10 +1161,10 @@ class TitleScene extends Phaser.Scene {
         
         // Platform texture - make it more visible
         graphics.fillStyle(0xf7931a);
-        graphics.fillRect(0, 0, 100, 32); // Made platforms thicker
+        graphics.fillRect(0, 0, GAME_CONSTANTS.PLATFORM.TEXTURE_WIDTH, GAME_CONSTANTS.PLATFORM.TEXTURE_HEIGHT); // Made platforms thicker
         graphics.lineStyle(2, 0xffffff);
-        graphics.strokeRect(0, 0, 100, 32);
-        graphics.generateTexture('platform', 100, 32);
+        graphics.strokeRect(0, 0, GAME_CONSTANTS.PLATFORM.TEXTURE_WIDTH, GAME_CONSTANTS.PLATFORM.TEXTURE_HEIGHT);
+        graphics.generateTexture('platform', GAME_CONSTANTS.PLATFORM.TEXTURE_WIDTH, GAME_CONSTANTS.PLATFORM.TEXTURE_HEIGHT);
         
         // Heart texture
         graphics.clear();
@@ -124,16 +1175,16 @@ class TitleScene extends Phaser.Scene {
         // Background fallback - ensure full coverage
         graphics.clear();
         graphics.fillStyle(0x1a1a2e);
-        graphics.fillRect(0, 0, 800, 600); // Full screen size
+        graphics.fillRect(0, 0, GAME_CONSTANTS.SCREEN.WIDTH, GAME_CONSTANTS.SCREEN.HEIGHT); // Full screen size
         graphics.fillStyle(0x16213e);
         // Create a pattern
-        for (let x = 0; x < 800; x += 64) {
-            for (let y = 0; y < 600; y += 64) {
+        for (let x = 0; x < GAME_CONSTANTS.SCREEN.WIDTH; x += 64) {
+            for (let y = 0; y < GAME_CONSTANTS.SCREEN.HEIGHT; y += 64) {
                 graphics.fillRect(x, y, 32, 32);
                 graphics.fillRect(x + 32, y + 32, 32, 32);
             }
         }
-        graphics.generateTexture('bg_fallback', 800, 600);
+        graphics.generateTexture('bg_fallback', GAME_CONSTANTS.SCREEN.WIDTH, GAME_CONSTANTS.SCREEN.HEIGHT);
         
         // Player fallback
         graphics.clear();
@@ -225,10 +1276,76 @@ class TitleScene extends Phaser.Scene {
         });
     }
 
+    // Power-up texture creation - Phase 3.2
+    createPowerUpTexture(type) {
+        const graphics = this.add.graphics();
+        const size = 64;
+        
+        switch (type) {
+            case 'doubleJump':
+                // Create a wing-like double jump icon
+                graphics.fillStyle(0x00ff00); // Green
+                graphics.fillCircle(size/2, size/2, size/3);
+                graphics.fillStyle(0xffffff); // White wings
+                graphics.fillEllipse(size/2 - 10, size/2 - 5, 15, 8);
+                graphics.fillEllipse(size/2 + 10, size/2 - 5, 15, 8);
+                graphics.fillEllipse(size/2 - 8, size/2 + 5, 12, 6);
+                graphics.fillEllipse(size/2 + 8, size/2 + 5, 12, 6);
+                break;
+                
+            default:
+                // Default power-up appearance
+                graphics.fillStyle(0xffff00); // Yellow
+                graphics.fillCircle(size/2, size/2, size/3);
+                graphics.fillStyle(0xffffff); // White star
+                const points = 5;
+                const outerRadius = size/4;
+                const innerRadius = size/8;
+                graphics.beginPath();
+                for (let i = 0; i < points * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (i * Math.PI) / points;
+                    const x = size/2 + Math.cos(angle) * radius;
+                    const y = size/2 + Math.sin(angle) * radius;
+                    if (i === 0) graphics.moveTo(x, y);
+                    else graphics.lineTo(x, y);
+                }
+                graphics.closePath();
+                graphics.fillPath();
+                break;
+        }
+        
+        // Generate texture from graphics
+        graphics.generateTexture('powerup_' + type, size, size);
+        graphics.destroy();
+    }
+
     create() {
+        // Use shared sound manager instance or create new one - Phase 3.1
+        if (window.globalSoundManager) {
+            this.soundManager = window.globalSoundManager;
+            console.log('Using shared sound manager');
+        } else {
+            this.soundManager = new SoundManager();
+            window.globalSoundManager = this.soundManager;
+            console.log('Created new sound manager');
+            
+            // Load and start background music (only on first creation)
+            this.soundManager.loadBackgroundMusic('assets/music/Crypto Quest.mp3').then(() => {
+                console.log('🎵 Background music loaded successfully, will start after user interaction');
+                // Start music after a short delay to allow for user interaction
+                this.time.delayedCall(1000, () => {
+                    console.log('🎵 Attempting to start background music');
+                    this.soundManager.playBackgroundMusic();
+                });
+            }).catch(error => {
+                console.error('❌ Failed to load background music:', error);
+            });
+        }
+        
         // Background with fallback - ensure full coverage
         const bgKey = this.textures.exists('background') ? 'background' : 'bg_fallback';
-        this.add.tileSprite(0, 0, 800, 600, bgKey).setOrigin(0, 0);
+        this.add.tileSprite(0, 0, GAME_CONSTANTS.SCREEN.WIDTH, GAME_CONSTANTS.SCREEN.HEIGHT, bgKey).setOrigin(0, 0);
         
         // Create particle effects
         this.createParticleEffects();
@@ -305,16 +1422,18 @@ class TitleScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive();
         
         startBtn.on('pointerover', () => {
-            startBtn.setScale(1.1);
+            startBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
             startBtn.setFill('#f7931a');
         });
         
         startBtn.on('pointerout', () => {
-            startBtn.setScale(1);
+            startBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
             startBtn.setFill('#ffffff');
         });
         
         startBtn.on('pointerdown', () => {
+            // Force audio context to start on first user interaction
+            this.soundManager.forceResumeAudio();
             this.startGame();
         });
         
@@ -325,13 +1444,13 @@ class TitleScene extends Phaser.Scene {
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5).setInteractive();
         
-        fullscreenBtn.on('pointerover', () => {
-            fullscreenBtn.setScale(1.1);
+                fullscreenBtn.on('pointerover', () => {
+            fullscreenBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
             fullscreenBtn.setFill('#ffffff');
         });
-        
+
         fullscreenBtn.on('pointerout', () => {
-            fullscreenBtn.setScale(1);
+            fullscreenBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
             fullscreenBtn.setFill('#cccccc');
         });
         
@@ -339,14 +1458,62 @@ class TitleScene extends Phaser.Scene {
             this.toggleFullscreen();
         });
         
-        this.menuItems = [startBtn, fullscreenBtn];
+        // Music toggle button
+        const musicBtn = this.add.text(400, menuY + spacing * 2, 'MUSIC: ON', {
+            fontSize: '18px',
+            fill: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setInteractive();
+        
+        musicBtn.on('pointerover', () => {
+            musicBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
+            musicBtn.setFill('#ffffff');
+        });
+        
+        musicBtn.on('pointerout', () => {
+            musicBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
+            musicBtn.setFill('#cccccc');
+        });
+        
+        musicBtn.on('pointerdown', () => {
+            // Force audio context to start on first user interaction
+            this.soundManager.forceResumeAudio();
+            
+            const musicEnabled = this.soundManager.toggleMusic();
+            musicBtn.setText(`MUSIC: ${musicEnabled ? 'ON' : 'OFF'}`);
+            this.soundManager.playUIClickSound();
+        });
+        
+        // High Scores button - Phase 4.2
+        const highScoresBtn = this.add.text(400, menuY + spacing * 3, 'HIGH SCORES', {
+            fontSize: '18px',
+            fill: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setInteractive();
+        
+        highScoresBtn.on('pointerover', () => {
+            highScoresBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
+            highScoresBtn.setFill('#ffffff');
+        });
+        
+        highScoresBtn.on('pointerout', () => {
+            highScoresBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
+            highScoresBtn.setFill('#cccccc');
+        });
+        
+        highScoresBtn.on('pointerdown', () => {
+            this.soundManager.playUIClickSound();
+            this.scene.start('HighScoresScene');
+        });
+        
+        this.menuItems = [startBtn, fullscreenBtn, musicBtn, highScoresBtn];
     }
 
     createDemoCharacter() {
         // Show animated player character on title screen
         const playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
         this.demoPlayer = this.add.sprite(200, 400, playerKey);
-        this.demoPlayer.setScale(0.15);
+        this.demoPlayer.setScale(GAME_CONSTANTS.PLAYER.DEMO_SCALE);
         this.demoPlayer.play('player_walk');
         
         // Make demo player bounce around
@@ -361,10 +1528,29 @@ class TitleScene extends Phaser.Scene {
     }
 
     startGame() {
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('GameScene');
-        });
+        try {
+            // UI click sound - Phase 3.1
+            this.soundManager.playUIClickSound();
+            
+            this.cameras.main.fadeOut(500, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                try {
+                    this.scene.start('GameScene');
+                } catch (sceneError) {
+                    console.error('Error starting GameScene:', sceneError);
+                    console.error('Falling back to direct scene start...');
+                    this.scene.start('TitleScene');
+                }
+            });
+        } catch (error) {
+            console.error('Error in startGame transition:', error);
+            console.error('Attempting direct scene start...');
+            try {
+                this.scene.start('GameScene');
+            } catch (fallbackError) {
+                console.error('Fallback failed, staying on title:', fallbackError);
+            }
+        }
     }
 
     toggleFullscreen() {
@@ -392,7 +1578,7 @@ class GameScene extends Phaser.Scene {
         this.enemies = null;
         this.cursors = null;
         this.score = 0;
-        this.lives = 3;
+        this.lives = GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES;
         this.scoreText = null;
         this.livesText = null;
         this.level = 1;
@@ -407,16 +1593,30 @@ class GameScene extends Phaser.Scene {
         // Jump mechanics
         this.jumpTimer = 0;
         this.canJump = true;
-        this.jumpForce = -500; // Realistic jump force
+        this.jumpForce = GAME_CONSTANTS.PLAYER.JUMP_FORCE; // Realistic jump force
         // Parallax background layers
         this.backgroundLayers = [];
+        
+        // Power-up system - Phase 3.2
+        this.powerUps = null;
+        this.doubleJumpActive = false;
+        this.doubleJumpUsed = false;
+        this.powerUpTimer = null;
+        this.powerUpIndicator = null;
+        
+        // Particle system - Phase 3.3
+        this.particleManager = null;
     }
 
     init() {
         // Reset game state
         this.score = 0;
-        this.lives = 3;
+        this.lives = GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES;
         this.level = window.gameState.level || 1;
+        
+        // Track game start time and reset counters - Phase 4.2
+        window.gameState.gameStartTime = Date.now();
+        window.gameState.currentGameBitcoins = 0;
         
         // Detect mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
@@ -425,6 +1625,42 @@ class GameScene extends Phaser.Scene {
     }
 
     create() {
+        // Use shared sound manager instance or create new one - Phase 3.1
+        if (window.globalSoundManager) {
+            this.soundManager = window.globalSoundManager;
+            console.log('Using shared sound manager');
+        } else {
+            this.soundManager = new SoundManager();
+            window.globalSoundManager = this.soundManager;
+            console.log('Created new sound manager');
+        }
+        
+        // Ensure background music continues if it was playing
+        if (this.soundManager.backgroundMusic && this.soundManager.backgroundMusic.paused) {
+            this.time.delayedCall(500, () => {
+                this.soundManager.resumeBackgroundMusic();
+            });
+        }
+        
+        // Test audio system after a short delay (after user interaction)
+        this.time.delayedCall(1000, () => {
+            console.log('Testing audio system - audio context state:', 
+                this.soundManager.audioContext ? this.soundManager.audioContext.state : 'No context');
+            
+            // Make test function available globally for debugging
+            window.testAudio = () => this.soundManager.testAudio();
+            console.log('💡 You can test audio by typing: testAudio() in console');
+        });
+        
+        // Initialize sprite pool for collection effects - Phase 2.2
+        this.spritePool = new SpritePool(this, 10);
+        
+        // Initialize power-up system - Phase 3.2
+        this.powerUps = this.physics.add.group();
+        
+        // Initialize particle system - Phase 3.3
+        this.initializeParticleSystem();
+        
         // Create layered parallax background
         this.createParallaxBackground();
         
@@ -666,7 +1902,7 @@ class GameScene extends Phaser.Scene {
         this.tweens.add({
             targets: this.goalFlag,
             alpha: 0.7,
-            duration: 1000,
+            duration: GAME_CONSTANTS.ANIMATION.TWEEN_DURATION,
             yoyo: true,
             repeat: -1,
             ease: 'Sine.easeInOut'
@@ -682,16 +1918,60 @@ class GameScene extends Phaser.Scene {
         }).setOrigin(0.5, 1);
     }
 
+    // Power-up texture creation - Phase 3.2
+    createPowerUpTexture(type) {
+        const graphics = this.add.graphics();
+        const size = 64;
+        
+        switch (type) {
+            case 'doubleJump':
+                // Create a wing-like double jump icon
+                graphics.fillStyle(0x00ff00); // Green
+                graphics.fillCircle(size/2, size/2, size/3);
+                graphics.fillStyle(0xffffff); // White wings
+                graphics.fillEllipse(size/2 - 10, size/2 - 5, 15, 8);
+                graphics.fillEllipse(size/2 + 10, size/2 - 5, 15, 8);
+                graphics.fillEllipse(size/2 - 8, size/2 + 5, 12, 6);
+                graphics.fillEllipse(size/2 + 8, size/2 + 5, 12, 6);
+                break;
+                
+            default:
+                // Default power-up appearance
+                graphics.fillStyle(0xffff00); // Yellow
+                graphics.fillCircle(size/2, size/2, size/3);
+                graphics.fillStyle(0xffffff); // White star
+                const points = 5;
+                const outerRadius = size/4;
+                const innerRadius = size/8;
+                graphics.beginPath();
+                for (let i = 0; i < points * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (i * Math.PI) / points;
+                    const x = size/2 + Math.cos(angle) * radius;
+                    const y = size/2 + Math.sin(angle) * radius;
+                    if (i === 0) graphics.moveTo(x, y);
+                    else graphics.lineTo(x, y);
+                }
+                graphics.closePath();
+                graphics.fillPath();
+                break;
+        }
+        
+        // Generate texture from graphics
+        graphics.generateTexture('powerup_' + type, size, size);
+        graphics.destroy();
+    }
+
     createPlayer() {
         const playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
-        this.player = this.physics.add.sprite(100, 530, playerKey); // Start on ground level
-        this.player.setScale(0.12);
-        this.player.setBounce(0.1); // Reduced bounce for more realistic physics
+        this.player = this.physics.add.sprite(GAME_CONSTANTS.PLAYER.START_X, GAME_CONSTANTS.PLAYER.START_Y, playerKey); // Start on ground level
+        this.player.setScale(GAME_CONSTANTS.PLAYER.SCALE);
+        this.player.setBounce(GAME_CONSTANTS.PLAYER.BOUNCE); // Reduced bounce for more realistic physics
         this.player.setCollideWorldBounds(true);
         this.player.body.setSize(200, 400, true);
         
         // Set max velocity to prevent flying
-        this.player.body.setMaxVelocity(200, 600);
+        this.player.body.setMaxVelocity(GAME_CONSTANTS.PLAYER.MAX_VELOCITY_X, GAME_CONSTANTS.PLAYER.MAX_VELOCITY_Y);
         this.player.body.setDragX(300); // Add air resistance
     }
 
@@ -741,7 +2021,7 @@ class GameScene extends Phaser.Scene {
         bitcoinPositions.forEach((pos) => {
             const bitcoinKey = this.textures.exists('bitcoin') ? 'bitcoin' : 'bitcoin_fallback';
             const bitcoin = this.bitcoins.create(pos.x, pos.y, bitcoinKey);
-            bitcoin.setScale(0.06); // Much smaller - proportional to player and enemy
+            bitcoin.setScale(GAME_CONSTANTS.BITCOIN.SCALE); // Much smaller - proportional to player and enemy
             
             // Set fixed position properties
             bitcoin.setImmovable(true);
@@ -788,8 +2068,8 @@ class GameScene extends Phaser.Scene {
             const enemyKey = this.textures.exists('enemy') ? 'enemy' : 'enemy_fallback';
             
             const enemy = this.enemies.create(placement.x, placement.y, enemyKey);
-            enemy.setScale(1.7); // Increase scale for better visual match with Andy
-            enemy.setBounce(0.1);
+            enemy.setScale(GAME_CONSTANTS.ENEMY.SCALE); // Increase scale for better visual match with Andy
+            enemy.setBounce(GAME_CONSTANTS.ENEMY.BOUNCE);
             enemy.setCollideWorldBounds(true);
             
             // Disable gravity for platform enemies to keep them on their platforms
@@ -798,7 +2078,7 @@ class GameScene extends Phaser.Scene {
                 enemy.body.setImmovable(true);
             }
             
-            const initialVelocity = Phaser.Math.Between(0, 1) ? 100 : -100;
+            const initialVelocity = Phaser.Math.Between(0, 1) ? GAME_CONSTANTS.ENEMY.SPEED : -GAME_CONSTANTS.ENEMY.SPEED;
             enemy.setVelocity(initialVelocity, 0);
             enemy.play(initialVelocity > 0 ? 'enemy_move_right' : 'enemy_move_left');
             
@@ -811,7 +2091,7 @@ class GameScene extends Phaser.Scene {
                 enemy.y += 10; // Small adjustment for whitespace at bottom of frames
             }
             
-            enemy.body.setMaxVelocity(120, 600);
+            enemy.body.setMaxVelocity(GAME_CONSTANTS.ENEMY.MAX_VELOCITY_X, GAME_CONSTANTS.ENEMY.MAX_VELOCITY_Y);
             
             enemy.patrolMin = placement.patrolMin;
             enemy.patrolMax = placement.patrolMax;
@@ -868,7 +2148,7 @@ class GameScene extends Phaser.Scene {
         this.tweens.add({
             targets: controlsHint,
             alpha: 0,
-            duration: 1000,
+            duration: GAME_CONSTANTS.ANIMATION.TWEEN_DURATION,
             delay: 3000,
             onComplete: () => controlsHint.destroy()
         });
@@ -930,15 +2210,30 @@ class GameScene extends Phaser.Scene {
     }
 
     setupCollisions() {
-        // Player collisions
-        this.physics.add.collider(this.player, this.platforms);
-        this.physics.add.collider(this.bitcoins, this.platforms);
-        this.physics.add.collider(this.enemies, this.platforms);
-        
-        // Collectibles and interactions
-        this.physics.add.overlap(this.player, this.bitcoins, this.collectBitcoin, null, this);
-        this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, null, this);
-        this.physics.add.overlap(this.player, this.goalFlag, this.reachGoal, null, this);
+        try {
+            // Player collisions
+            this.physics.add.collider(this.player, this.platforms);
+            this.physics.add.collider(this.bitcoins, this.platforms);
+            this.physics.add.collider(this.enemies, this.platforms);
+            
+            // Collectibles and interactions
+            this.physics.add.overlap(this.player, this.bitcoins, this.collectBitcoin, null, this);
+            this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, null, this);
+            this.physics.add.overlap(this.player, this.goalFlag, this.reachGoal, null, this);
+            
+            // Power-up collision detection - Phase 3.2
+            this.physics.add.overlap(this.player, this.powerUps, this.collectPowerUp, null, this);
+        } catch (error) {
+            console.error('Error setting up collisions:', error);
+            console.error('Attempting to restart scene...');
+            // Graceful fallback - restart the current scene
+            try {
+                this.scene.restart();
+            } catch (restartError) {
+                console.error('Scene restart failed, returning to title:', restartError);
+                this.scene.start('TitleScene');
+            }
+        }
     }
 
     setupInput() {
@@ -950,12 +2245,12 @@ class GameScene extends Phaser.Scene {
 
     setupCamera() {
         // Set much wider world bounds for longer side-scrolling
-        this.cameras.main.setBounds(0, 0, 4000, 600);
+        this.cameras.main.setBounds(0, 0, GAME_CONSTANTS.WORLD.WIDTH, GAME_CONSTANTS.WORLD.HEIGHT);
         this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
         this.cameras.main.setDeadzone(150, 200);
         
         // Set world bounds for physics
-        this.physics.world.setBounds(0, 0, 4000, 600);
+        this.physics.world.setBounds(0, 0, GAME_CONSTANTS.WORLD.WIDTH, GAME_CONSTANTS.WORLD.HEIGHT);
     }
 
     initializePerformanceMonitoring() {
@@ -965,38 +2260,67 @@ class GameScene extends Phaser.Scene {
 
     collectBitcoin(player, bitcoin) {
         bitcoin.disableBody(true, true);
-        this.score += 10;
+        this.score += GAME_CONSTANTS.BITCOIN.POINTS;
         this.updateScoreDisplay();
+        
+        // Sound effect - Phase 3.1 with immediate activation
+        console.log('🪙 About to play collect sound - audio context state:', this.soundManager.audioContext ? this.soundManager.audioContext.state : 'No context');
+        this.soundManager.forceResumeAudio(); // Ensure audio context is active
+        this.soundManager.playCollectSound();
+        
+        // Haptic feedback for mobile - Phase 2.3
+        if (this.isMobile && navigator.vibrate) {
+            navigator.vibrate(50); // Positive feedback vibration
+        }
+        
+        // Record bitcoin collection for achievements - Phase 4.2
+        window.highScoreManager.recordBitcoinCollection();
+        window.gameState.currentGameBitcoins++;
         
         // Create collection effect
         this.createCollectionEffect(bitcoin.x, bitcoin.y);
         
+        // Create particle effects - Phase 3.3
+        this.createBitcoinParticleEffect(bitcoin.x, bitcoin.y);
+        
+        // Chance to spawn power-up - Phase 3.2
+        this.spawnPowerUp(bitcoin.x, bitcoin.y);
+        
         // Check if all bitcoins collected
         if (this.bitcoins.countActive(true) === 0) {
-            this.score += 100; // Bonus for collecting all
+            this.score += GAME_CONSTANTS.GAMEPLAY.COLLECTION_BONUS; // Bonus for collecting all
             this.updateScoreDisplay();
         }
     }
 
     createCollectionEffect(x, y) {
-        const effect = this.add.text(x, y, '+10', {
-            fontSize: '24px',
-            fill: '#f7931a',
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
+        // Get sprite from pool instead of creating new one - Phase 2.2
+        const effect = this.spritePool.get();
+        effect.setPosition(x, y);
         
         this.tweens.add({
             targets: effect,
             y: y - 50,
             alpha: 0,
-            duration: 1000,
-            onComplete: () => effect.destroy()
+            duration: GAME_CONSTANTS.ANIMATION.TWEEN_DURATION,
+            onComplete: () => {
+                // Release sprite back to pool instead of destroying - Phase 2.2
+                this.spritePool.release(effect);
+            }
         });
     }
 
     hitEnemy(player, enemy) {
         this.lives--;
         this.updateLivesDisplay();
+        
+        // Sound effect - Phase 3.1
+        this.soundManager.playHitSound();
+        
+        // Haptic feedback for mobile - Phase 2.3
+        if (this.isMobile && navigator.vibrate) {
+            navigator.vibrate(100); // Negative feedback vibration
+        }
         
         if (this.lives <= 0) {
             this.gameOver();
@@ -1005,35 +2329,439 @@ class GameScene extends Phaser.Scene {
             player.setTint(0xff0000);
             player.setAlpha(0.5);
             
-            this.time.delayedCall(1000, () => {
+            this.time.delayedCall(GAME_CONSTANTS.ANIMATION.INVINCIBILITY_DURATION, () => {
                 player.clearTint();
                 player.setAlpha(1);
             });
             
             // Reset player position
-            player.setPosition(100, 530);
+            player.setPosition(GAME_CONSTANTS.PLAYER.START_X, GAME_CONSTANTS.PLAYER.START_Y);
+        }
+    }
+
+    // Power-up collection handler - Phase 3.2
+    collectPowerUp(player, powerUp) {
+        powerUp.collect(player);
+    }
+
+    // Spawn power-up with random chance - Phase 3.2
+    spawnPowerUp(x, y) {
+        if (Math.random() < GAME_CONSTANTS.POWERUP.SPAWN_CHANCE) {
+            // For now, only double jump power-up
+            const powerUp = new PowerUp(this, x, y, 'doubleJump');
+            this.powerUps.add(powerUp);
+        }
+    }
+
+    // Activate double jump power-up - Phase 3.2
+    activateDoubleJump() {
+        this.doubleJumpActive = true;
+        this.doubleJumpUsed = false;
+        
+        // Create UI indicator
+        this.createPowerUpIndicator('doubleJump');
+        
+        // Clear any existing timer
+        if (this.powerUpTimer) {
+            this.powerUpTimer.remove();
+        }
+        
+        // Set expiration timer
+        this.powerUpTimer = this.time.delayedCall(GAME_CONSTANTS.POWERUP.DURATION, () => {
+            this.deactivateDoubleJump();
+        });
+    }
+
+    // Deactivate double jump power-up - Phase 3.2
+    deactivateDoubleJump() {
+        this.doubleJumpActive = false;
+        this.doubleJumpUsed = false;
+        
+        // Remove UI indicator
+        if (this.powerUpIndicator) {
+            this.powerUpIndicator.destroy();
+            this.powerUpIndicator = null;
+        }
+        
+        // Clear timer update event
+        if (this.timerUpdateEvent) {
+            this.timerUpdateEvent.remove();
+            this.timerUpdateEvent = null;
+        }
+        
+        // Clear timer
+        if (this.powerUpTimer) {
+            this.powerUpTimer.remove();
+            this.powerUpTimer = null;
+        }
+    }
+
+    // Create power-up UI indicator - Phase 3.2
+    createPowerUpIndicator(type) {
+        if (this.powerUpIndicator) {
+            this.powerUpIndicator.destroy();
+        }
+        
+        const x = GAME_CONSTANTS.SCREEN.WIDTH - 80;
+        const y = 60;
+        
+        switch (type) {
+            case 'doubleJump':
+                // Create wing icon in top right
+                this.powerUpIndicator = this.add.group();
+                
+                const bg = this.add.circle(x, y, 25, 0x000000, 0.5);
+                const icon = this.add.text(x, y, '🪶', { fontSize: '24px' }).setOrigin(0.5);
+                const timer = this.add.text(x, y + 35, '', { 
+                    fontSize: '12px', 
+                    fill: '#ffffff',
+                    fontWeight: 'bold'
+                }).setOrigin(0.5);
+                
+                this.powerUpIndicator.addMultiple([bg, icon, timer]);
+                
+                // Update timer display
+                const updateTimer = () => {
+                    if (this.powerUpTimer && timer.active) {
+                        const remaining = Math.ceil((this.powerUpTimer.delay - this.powerUpTimer.elapsed) / 1000);
+                        timer.setText(remaining + 's');
+                        
+                        if (remaining <= 3) {
+                            icon.setTint(0xff0000); // Red warning
+                        }
+                    }
+                };
+                
+                this.timerUpdateEvent = this.time.addEvent({
+                    delay: 100,
+                    callback: updateTimer,
+                    loop: true
+                });
+                
+                break;
+        }
+    }
+
+    // Create power-up collection effect - Phase 3.2
+    createPowerUpCollectionEffect(x, y, type) {
+        const effectText = type === 'doubleJump' ? 'DOUBLE JUMP!' : 'POWER UP!';
+        const color = type === 'doubleJump' ? '#00ff00' : '#ffff00';
+        
+        const effect = this.add.text(x, y, effectText, {
+            fontSize: '20px',
+            fill: color,
+            fontWeight: 'bold',
+            stroke: '#000000',
+            strokeThickness: 2
+        }).setOrigin(0.5);
+        
+        // Animation
+        this.tweens.add({
+            targets: effect,
+            y: y - 80,
+            alpha: 0,
+            scale: 1.5,
+            duration: 1500,
+            ease: 'Power2',
+            onComplete: () => {
+                effect.destroy();
+            }
+        });
+    }
+
+        // Create double jump visual effect - Phase 3.2 Enhanced with particles 3.3
+    createDoubleJumpEffect(x, y) {
+        // Create burst effect with multiple particles
+        for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const distance = 30;
+            const targetX = x + Math.cos(angle) * distance;
+            const targetY = y + Math.sin(angle) * distance;
+            
+            const particle = this.add.circle(x, y, 3, 0x00ff00, 0.8);
+            
+            this.tweens.add({
+                targets: particle,
+                x: targetX,
+                y: targetY,
+                alpha: 0,
+                scale: 0.5,
+                duration: 300,
+                ease: 'Power2',
+                onComplete: () => {
+                    particle.destroy();
+                }
+            });
+        }
+        
+        // Enhanced particle effects for double jump - Phase 3.3
+        if (this.particleManager && this.particleManager.bitcoinParticles) {
+            // Create temporary green-tinted particles for double jump
+            const tempEmitter = this.add.particles(x, y, 'bitcoin_particle', {
+                scale: { start: 0.3, end: 0.1 },
+                speed: { min: 80, max: 120 },
+                lifespan: 400,
+                gravityY: -100, // Upward gravity for jump effect
+                tint: [0x00ff00, 0x00cc00, 0x00aa00],
+                alpha: { start: 0.8, end: 0 },
+                quantity: 6
+            });
+            
+            // Clean up temporary emitter
+            this.time.delayedCall(500, () => {
+                tempEmitter.destroy();
+            });
+        }
+        
+        // Add wing-like effect
+        const leftWing = this.add.ellipse(x - 15, y, 20, 10, 0xffffff, 0.6);
+        const rightWing = this.add.ellipse(x + 15, y, 20, 10, 0xffffff, 0.6);
+        
+        this.tweens.add({
+            targets: [leftWing, rightWing],
+            scaleX: 1.5,
+            scaleY: 0.3,
+            alpha: 0,
+            duration: 400,
+            ease: 'Power2',
+            onComplete: () => {
+                leftWing.destroy();
+                rightWing.destroy();
+            }
+        });
+    }
+
+    // Initialize particle system - Phase 3.3
+    initializeParticleSystem() {
+        // Create particle texture first
+        if (!this.textures.exists('bitcoin_particle')) {
+            this.createParticleTexture();
+        }
+        
+        // Create particle manager object to handle different particle types
+        this.particleManager = {
+            bitcoinParticles: this.add.particles(0, 0, 'bitcoin_particle', {
+                scale: { start: GAME_CONSTANTS.PARTICLES.PARTICLE_SIZE.start, end: GAME_CONSTANTS.PARTICLES.PARTICLE_SIZE.end },
+                speed: { min: GAME_CONSTANTS.PARTICLES.PARTICLE_SPEED.min, max: GAME_CONSTANTS.PARTICLES.PARTICLE_SPEED.max },
+                lifespan: GAME_CONSTANTS.PARTICLES.PARTICLE_LIFETIME,
+                gravityY: GAME_CONSTANTS.PARTICLES.GRAVITY,
+                bounce: GAME_CONSTANTS.PARTICLES.BOUNCE,
+                tint: GAME_CONSTANTS.PARTICLES.BITCOIN_COLORS,
+                alpha: { start: 1, end: 0 },
+                frequency: -1 // Don't emit automatically
+            })
+        };
+    }
+
+    // Create particle texture - Phase 3.3
+    createParticleTexture() {
+        const graphics = this.add.graphics();
+        const size = 8;
+        
+        // Create golden circle particle
+        graphics.fillStyle(0xf7931a); // Bitcoin gold
+        graphics.fillCircle(size/2, size/2, size/2);
+        
+        // Add inner glow
+        graphics.fillStyle(0xffd700); // Lighter gold
+        graphics.fillCircle(size/2, size/2, size/3);
+        
+        // Generate texture
+        graphics.generateTexture('bitcoin_particle', size, size);
+        graphics.destroy();
+    }
+
+    // Create bitcoin collection particle effect - Phase 3.3
+    createBitcoinParticleEffect(x, y) {
+        // Create burst of golden particles
+        this.particleManager.bitcoinParticles.emitParticleAt(x, y, GAME_CONSTANTS.PARTICLES.BITCOIN_BURST_COUNT);
+        
+        // Add some extra sparkle particles
+        for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2;
+            const distance = 20 + Math.random() * 15;
+            const sparkleX = x + Math.cos(angle) * distance;
+            const sparkleY = y + Math.sin(angle) * distance;
+            
+            const sparkle = this.add.circle(sparkleX, sparkleY, 2, 0xffd700, 0.8);
+            
+            // Sparkle animation
+            this.tweens.add({
+                targets: sparkle,
+                scaleX: 2,
+                scaleY: 2,
+                alpha: 0,
+                duration: 400,
+                ease: 'Power2',
+                onComplete: () => {
+                    sparkle.destroy();
+                }
+            });
+        }
+        
+        // Add golden ring explosion effect
+        const ring = this.add.circle(x, y, 5, 0xf7931a, 0.6);
+        ring.setStrokeStyle(3, 0xffd700, 0.8);
+        
+        this.tweens.add({
+            targets: ring,
+            scaleX: 4,
+            scaleY: 4,
+            alpha: 0,
+            duration: 300,
+            ease: 'Power2',
+            onComplete: () => {
+                ring.destroy();
+            }
+                 });
+     }
+
+    // Create power-up particle effect - Phase 3.3
+    createPowerUpParticleEffect(x, y, type) {
+        // Different particles for different power-up types
+        const colors = type === 'doubleJump' ? [0x00ff00, 0x00cc00, 0x00aa00] : [0xffff00, 0xffcc00, 0xff9900];
+        
+        // Create enhanced burst effect
+        for (let i = 0; i < 15; i++) {
+            const angle = (i / 15) * Math.PI * 2;
+            const distance = 25 + Math.random() * 20;
+            const particleX = x + Math.cos(angle) * (distance * 0.3);
+            const particleY = y + Math.sin(angle) * (distance * 0.3);
+            
+            const targetX = x + Math.cos(angle) * distance;
+            const targetY = y + Math.sin(angle) * distance;
+            
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const particle = this.add.circle(particleX, particleY, 3, color, 0.9);
+            
+            this.tweens.add({
+                targets: particle,
+                x: targetX,
+                y: targetY,
+                scaleX: 0.3,
+                scaleY: 0.3,
+                alpha: 0,
+                duration: 600,
+                delay: Math.random() * 100,
+                ease: 'Power2',
+                onComplete: () => {
+                    particle.destroy();
+                }
+            });
+        }
+        
+        // Add radiating energy waves
+        for (let wave = 0; wave < 3; wave++) {
+            setTimeout(() => {
+                const energyRing = this.add.circle(x, y, 8, colors[0], 0.3);
+                energyRing.setStrokeStyle(2, colors[1], 0.6);
+                
+                this.tweens.add({
+                    targets: energyRing,
+                    scaleX: 6,
+                    scaleY: 6,
+                    alpha: 0,
+                    duration: 500,
+                    ease: 'Power2',
+                    onComplete: () => {
+                        energyRing.destroy();
+                    }
+                });
+            }, wave * 150);
         }
     }
 
     reachGoal(player, flag) {
-        this.level++;
-        window.gameState.level = this.level;
-        
-        if (this.level > 3) {
-            this.scene.start('VictoryScene');
-        } else {
-            this.scene.restart();
+        try {
+            // Victory sound effect - Phase 3.1
+            this.soundManager.playVictorySound();
+            
+            // Clean up power-ups - Phase 3.2
+            this.deactivateDoubleJump();
+            this.powerUps.clear(true, true);
+            
+            // Clean up particle system - Phase 3.3
+            if (this.particleManager) {
+                Object.values(this.particleManager).forEach(emitter => {
+                    if (emitter && emitter.destroy) {
+                        emitter.destroy();
+                    }
+                });
+                this.particleManager = null;
+            }
+            
+            this.level++;
+            window.gameState.level = this.level;
+            
+            if (this.level > 3) {
+                try {
+                    this.scene.start('VictoryScene');
+                } catch (victoryError) {
+                    console.error('Error starting VictoryScene:', victoryError);
+                    console.error('Falling back to title screen...');
+                    this.scene.start('TitleScene');
+                }
+            } else {
+                try {
+                    this.scene.restart();
+                } catch (restartError) {
+                    console.error('Error restarting scene:', restartError);
+                    console.error('Falling back to title screen...');
+                    this.scene.start('TitleScene');
+                }
+            }
+        } catch (error) {
+            console.error('Critical error in reachGoal:', error);
+            console.error('Returning to title screen...');
+            this.scene.start('TitleScene');
         }
     }
 
     gameOver() {
-        // Update high score
-        if (this.score > window.gameState.highScore) {
-            window.gameState.highScore = this.score;
-            localStorage.setItem('bitcoinAdventureHighScore', this.score.toString());
+        try {
+            // Game over sound effect - Phase 3.1
+            this.soundManager.playGameOverSound();
+            
+            // Clean up power-ups - Phase 3.2
+            this.deactivateDoubleJump();
+            if (this.powerUps) {
+                this.powerUps.clear(true, true);
+            }
+            
+            // Clean up particle system - Phase 3.3
+            if (this.particleManager) {
+                Object.values(this.particleManager).forEach(emitter => {
+                    if (emitter && emitter.destroy) {
+                        emitter.destroy();
+                    }
+                });
+                this.particleManager = null;
+            }
+            
+            // Update high score
+            if (this.score > window.gameState.highScore) {
+                window.gameState.highScore = this.score;
+                localStorage.setItem('bitcoinAdventureHighScore', this.score.toString());
+            }
+            
+            try {
+                this.scene.start('GameOverScene', { score: this.score, level: this.level });
+            } catch (gameOverError) {
+                console.error('Error starting GameOverScene:', gameOverError);
+                console.error('Falling back to title screen...');
+                this.scene.start('TitleScene');
+            }
+        } catch (error) {
+            console.error('Critical error in gameOver:', error);
+            console.error('Returning to title screen...');
+            try {
+                this.scene.start('TitleScene');
+            } catch (titleError) {
+                console.error('Failed to return to title screen:', titleError);
+                // Ultimate fallback - reload the page
+                window.location.reload();
+            }
         }
-        
-        this.scene.start('GameOverScene', { score: this.score, level: this.level });
     }
 
     togglePause() {
@@ -1078,11 +2806,11 @@ class GameScene extends Phaser.Scene {
         
         // Player movement
         if (leftPressed) {
-            this.player.setVelocityX(-160);
+            this.player.setVelocityX(-GAME_CONSTANTS.PLAYER.SPEED);
             this.player.play('player_walk', true);
             this.player.setFlipX(true);
         } else if (rightPressed) {
-            this.player.setVelocityX(160);
+            this.player.setVelocityX(GAME_CONSTANTS.PLAYER.SPEED);
             this.player.play('player_walk', true);
             this.player.setFlipX(false);
         } else {
@@ -1090,16 +2818,78 @@ class GameScene extends Phaser.Scene {
             this.player.play('player_idle', true);
         }
         
-        // Improved jumping mechanics
-        if (jumpPressed && this.player.body.touching.down && this.canJump) {
-            this.player.setVelocityY(this.jumpForce);
-            this.canJump = false;
-            this.jumpTimer = this.time.now + 200; // Prevent double jumping for 200ms
+        // Enhanced jumping mechanics with double jump support - Phase 3.2
+        if (jumpPressed && this.canJump) {
+            // Regular jump when on ground
+            if (this.player.body.touching.down) {
+                this.player.setVelocityY(this.jumpForce);
+                this.canJump = false;
+                this.jumpTimer = this.time.now + 200; // Prevent double jumping for 200ms
+                
+                // Sound effect - Phase 3.1 with immediate activation
+                console.log('🚀 About to play jump sound - audio context state:', this.soundManager.audioContext ? this.soundManager.audioContext.state : 'No context');
+                this.soundManager.forceResumeAudio(); // Ensure audio context is active
+                this.soundManager.playJumpSound();
+                
+                // Haptic feedback for mobile jump - Phase 2.3
+                if (this.isMobile && navigator.vibrate) {
+                    navigator.vibrate(30); // Subtle jump feedback
+                }
+                
+                // Record jump for achievements - Phase 4.2
+                window.highScoreManager.recordJump(false);
+            }
+            // Double jump when in air (if power-up is active)
+            else if (this.doubleJumpActive && !this.doubleJumpUsed && 
+                     this.player.body.velocity.y > 0 && // Only when falling
+                     this.time.now > this.jumpTimer) {
+                     
+                // Preserve and boost horizontal momentum for better distance coverage
+                const currentHorizontalVelocity = this.player.body.velocity.x;
+                let horizontalBoost = 0;
+                
+                // Add horizontal boost based on movement direction
+                if (leftPressed) {
+                    horizontalBoost = -50; // Boost left movement
+                } else if (rightPressed) {
+                    horizontalBoost = 50; // Boost right movement
+                } else if (Math.abs(currentHorizontalVelocity) > 10) {
+                    // Maintain current direction if moving
+                    horizontalBoost = currentHorizontalVelocity > 0 ? 30 : -30;
+                }
+                
+                // Apply double jump with enhanced horizontal movement
+                this.player.setVelocityY(this.jumpForce * 0.8); // Slightly weaker double jump
+                
+                // Enhance horizontal velocity for better distance coverage
+                if (horizontalBoost !== 0) {
+                    const newHorizontalVelocity = Math.max(-200, Math.min(200, currentHorizontalVelocity + horizontalBoost));
+                    this.player.setVelocityX(newHorizontalVelocity);
+                }
+                
+                this.doubleJumpUsed = true;
+                this.canJump = false;
+                this.jumpTimer = this.time.now + 200;
+                
+                // Enhanced sound and effects for double jump
+                console.log('🚀 About to play double jump sound - audio context state:', this.soundManager.audioContext ? this.soundManager.audioContext.state : 'No context');
+                this.soundManager.forceResumeAudio(); // Ensure audio context is active
+                this.soundManager.playJumpSound();
+                
+                // Create double jump visual effect
+                this.createDoubleJumpEffect(this.player.x, this.player.y);
+                
+                // Haptic feedback for mobile double jump
+                if (this.isMobile && navigator.vibrate) {
+                    navigator.vibrate([30, 30, 30]); // Triple vibration for double jump
+                }
+            }
         }
         
         // Reset jump ability when touching ground
         if (this.player.body.touching.down && this.time.now > this.jumpTimer) {
             this.canJump = true;
+            this.doubleJumpUsed = false; // Reset double jump when landing
         }
         
         // Pause toggle
@@ -1107,94 +2897,159 @@ class GameScene extends Phaser.Scene {
             this.togglePause();
         }
         
-        // Improved enemy AI with patrol ranges - fixed movement bug
+        // Simplified enemy movement logic - Phase 1.1 implementation
         this.enemies.children.entries.forEach(enemy => {
-            // Simple edge detection for platform enemies
-            if (enemy.platformType === 'platform') {
-                // Check if enemy would fall off by looking ahead
-                const direction = enemy.body.velocity.x > 0 ? 1 : -1;
-                const lookAheadDistance = 20; // Distance to check ahead
-                const checkX = enemy.x + direction * lookAheadDistance;
-                const checkY = enemy.y + enemy.body.height / 2 + 10; // Just below enemy's feet
-                
-                let foundPlatform = false;
-                
-                // Check if there's a platform at the look-ahead position
-                this.platforms.children.entries.forEach(platform => {
-                    const bounds = platform.getBounds();
-                    if (checkX >= bounds.left && checkX <= bounds.right && 
-                        checkY >= bounds.top && checkY <= bounds.bottom + 10) {
-                        foundPlatform = true;
-                    }
-                });
-                
-                // If no platform found ahead, reverse direction
-                if (!foundPlatform) {
-                    enemy.setVelocityX(-enemy.body.velocity.x);
-                }
-            }
-            
-            // Check if enemy has patrol range (new system)
-            if (enemy.patrolMin && enemy.patrolMax) {
-                // Turn around at patrol boundaries with stronger force
-                if (enemy.x <= enemy.patrolMin) {
-                    enemy.setVelocityX(100); // Force right movement
-                } else if (enemy.x >= enemy.patrolMax) {
-                    enemy.setVelocityX(-100); // Force left movement
-                }
-                
-                // Ensure enemy is moving (prevent getting stuck) with stronger velocity
-                if (Math.abs(enemy.body.velocity.x) < 30) {
-                    const direction = enemy.x < (enemy.patrolMin + enemy.patrolMax) / 2 ? 1 : -1;
-                    enemy.setVelocityX(direction * 100); // Much stronger push
-                }
-                
-                // Flip sprite based on direction for visual feedback
-                if (enemy.body.velocity.x > 0) {
-                    enemy.setFlipX(false);
-                    enemy.play('enemy_move_right', true);
-                } else if (enemy.body.velocity.x < 0) {
-                    enemy.setFlipX(false);
-                    enemy.play('enemy_move_left', true);
-                }
-                
-                // Update last position for debugging
-                enemy.lastX = enemy.x;
-            } else {
-                // Fallback for enemies without patrol ranges
-                // Turn around when hitting walls
-                if (enemy.body.blocked.left || enemy.body.blocked.right) {
-                    enemy.setVelocityX(-enemy.body.velocity.x);
-                }
-                
-                // Simple boundary check
-                if (enemy.x < 100 || enemy.x > 3900) {
-                    enemy.setVelocityX(-enemy.body.velocity.x);
-                }
-                
-                // Prevent getting stuck
-                if (Math.abs(enemy.body.velocity.x) < 30) {
-                    enemy.setVelocityX(Phaser.Math.Between(-100, 100));
-                }
-                
-                // Flip sprite based on direction
-                if (enemy.body.velocity.x > 0) {
-                    enemy.setFlipX(false);
-                    enemy.play('enemy_move_right', true);
-                } else if (enemy.body.velocity.x < 0) {
-                    enemy.setFlipX(false);
-                    enemy.play('enemy_move_left', true);
-                }
-            }
+            this.updateEnemyMovement(enemy);
         });
+        
+        // Double jump power-up visual feedback - Phase 3.3
+        if (this.doubleJumpActive && this.particleManager && Math.random() < 0.3) {
+            // Create subtle trail particles when double jump is active
+            const trailParticle = this.add.circle(
+                this.player.x + (Math.random() - 0.5) * 20, 
+                this.player.y + (Math.random() - 0.5) * 20, 
+                1, 
+                0x00ff00, 
+                0.6
+            );
+            
+            this.tweens.add({
+                targets: trailParticle,
+                alpha: 0,
+                scaleX: 2,
+                scaleY: 2,
+                duration: 300,
+                ease: 'Power2',
+                onComplete: () => {
+                    trailParticle.destroy();
+                }
+            });
+        }
         
         // Update parallax background scrolling
         this.updateParallaxBackground();
     }
 
+    // Simple, robust enemy movement - No conflicts
+    updateEnemyMovement(enemy) {
+        // Initialize cooldown tracking
+        if (!enemy.lastDirectionChange) {
+            enemy.lastDirectionChange = 0;
+        }
+        
+        const currentTime = this.time.now;
+        const canChangeDirection = (currentTime - enemy.lastDirectionChange > 500); // Longer cooldown for stability
+        
+        // Force movement if enemy is stuck (no velocity)
+        if (Math.abs(enemy.body.velocity.x) < 10) {
+            const direction = Math.random() > 0.5 ? 1 : -1;
+            enemy.setVelocityX(direction * GAME_CONSTANTS.ENEMY.SPEED);
+            enemy.lastDirectionChange = currentTime;
+            return;
+        }
+        
+        // Simple patrol boundary system - works for all enemies
+        if (enemy.patrolMin && enemy.patrolMax && canChangeDirection) {
+            // Turn around at patrol boundaries
+            if (enemy.x <= enemy.patrolMin + 10 && enemy.body.velocity.x < 0) {
+                enemy.setVelocityX(GAME_CONSTANTS.ENEMY.SPEED); // Go right
+                enemy.lastDirectionChange = currentTime;
+            } else if (enemy.x >= enemy.patrolMax - 10 && enemy.body.velocity.x > 0) {
+                enemy.setVelocityX(-GAME_CONSTANTS.ENEMY.SPEED); // Go left
+                enemy.lastDirectionChange = currentTime;
+            }
+        }
+        
+        // World boundary safety
+        if (enemy.x < 50) {
+            enemy.setVelocityX(GAME_CONSTANTS.ENEMY.SPEED);
+            enemy.x = 60; // Push away from edge
+        } else if (enemy.x > GAME_CONSTANTS.WORLD.WIDTH - 50) {
+            enemy.setVelocityX(-GAME_CONSTANTS.ENEMY.SPEED);
+            enemy.x = GAME_CONSTANTS.WORLD.WIDTH - 60; // Push away from edge
+        }
+        
+        // Ensure consistent speed
+        if (enemy.body.velocity.x > 0 && enemy.body.velocity.x < 80) {
+            enemy.setVelocityX(GAME_CONSTANTS.ENEMY.SPEED);
+        } else if (enemy.body.velocity.x < 0 && enemy.body.velocity.x > -80) {
+            enemy.setVelocityX(-GAME_CONSTANTS.ENEMY.SPEED);
+        }
+        
+        // Visual feedback (sprite flipping)
+        if (enemy.body.velocity.x > 0) {
+            enemy.setFlipX(false);
+            enemy.play('enemy_move_right', true);
+        } else if (enemy.body.velocity.x < 0) {
+            enemy.setFlipX(false);
+            enemy.play('enemy_move_left', true);
+        }
+    }
+
     updateParallaxBackground() {
         // With setScrollFactor in place, we don't need to manually update the position
         // The engine will handle the parallax effect automatically
+    }
+
+    // Achievement notification system - Phase 4.2
+    showAchievementNotification(achievement) {
+        // Create achievement popup
+        const popup = this.add.group();
+        
+        // Background
+        const bg = this.add.rectangle(400, 100, 350, 80, 0x000000, 0.8);
+        bg.setStrokeStyle(3, 0xffd700);
+        
+        // Achievement icon
+        const icon = this.add.text(320, 100, '🏆', { fontSize: '24px' }).setOrigin(0.5);
+        
+        // Achievement text
+        const title = this.add.text(400, 85, 'ACHIEVEMENT UNLOCKED!', {
+            fontSize: '14px',
+            fill: '#ffd700',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        
+        const name = this.add.text(400, 105, achievement.name, {
+            fontSize: '16px',
+            fill: '#ffffff',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        
+        const desc = this.add.text(400, 120, achievement.description, {
+            fontSize: '12px',
+            fill: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
+        
+        popup.addMultiple([bg, icon, title, name, desc]);
+        
+        // Animation
+        popup.setAlpha(0);
+        this.tweens.add({
+            targets: popup.children.entries,
+            alpha: 1,
+            duration: 300,
+            ease: 'Power2'
+        });
+        
+        // Auto-hide after 3 seconds
+        this.time.delayedCall(3000, () => {
+            this.tweens.add({
+                targets: popup.children.entries,
+                alpha: 0,
+                duration: 300,
+                ease: 'Power2',
+                onComplete: () => {
+                    popup.destroy();
+                }
+            });
+        });
+        
+        // Play achievement sound
+        this.soundManager.playVictorySound();
     }
 }
 
@@ -1211,6 +3066,9 @@ class GameOverScene extends Phaser.Scene {
     }
 
     create() {
+        // Use shared sound manager instance - Phase 3.1
+        this.soundManager = window.globalSoundManager || new SoundManager();
+        
         // Background
         const bgKey = this.textures.exists('background') ? 'background' : 'bg_fallback';
         const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, bgKey);
@@ -1268,7 +3126,7 @@ class GameOverScene extends Phaser.Scene {
         // Reset game state for next play
         window.gameState.score = 0;
         window.gameState.level = 1;
-        window.gameState.lives = 3;
+        window.gameState.lives = GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES;
     }
 
     createMenu() {
@@ -1285,12 +3143,12 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive();
         
         playAgainBtn.on('pointerover', () => {
-            playAgainBtn.setScale(1.1);
+            playAgainBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
             playAgainBtn.setFill('#f7931a');
         });
         
         playAgainBtn.on('pointerout', () => {
-            playAgainBtn.setScale(1);
+            playAgainBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
             playAgainBtn.setFill('#ffffff');
         });
         
@@ -1306,12 +3164,12 @@ class GameOverScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive();
         
         mainMenuBtn.on('pointerover', () => {
-            mainMenuBtn.setScale(1.1);
+            mainMenuBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
             mainMenuBtn.setFill('#ffffff');
         });
         
         mainMenuBtn.on('pointerout', () => {
-            mainMenuBtn.setScale(1);
+            mainMenuBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
             mainMenuBtn.setFill('#cccccc');
         });
         
@@ -1321,17 +3179,57 @@ class GameOverScene extends Phaser.Scene {
     }
 
     restartGame() {
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('GameScene');
-        });
+        try {
+            // UI click sound - Phase 3.1
+            this.soundManager.playUIClickSound();
+            
+            this.cameras.main.fadeOut(500, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                try {
+                    this.scene.start('GameScene');
+                } catch (restartError) {
+                    console.error('Error restarting game:', restartError);
+                    console.error('Falling back to title screen...');
+                    this.scene.start('TitleScene');
+                }
+            });
+        } catch (error) {
+            console.error('Error in restartGame transition:', error);
+            console.error('Attempting direct restart...');
+            try {
+                this.scene.start('GameScene');
+            } catch (fallbackError) {
+                console.error('Fallback failed, returning to title:', fallbackError);
+                this.scene.start('TitleScene');
+            }
+        }
     }
 
     returnToMenu() {
-        this.cameras.main.fadeOut(500, 0, 0, 0);
-        this.cameras.main.once('camerafadeoutcomplete', () => {
-            this.scene.start('TitleScene');
-        });
+        try {
+            // UI click sound - Phase 3.1
+            this.soundManager.playUIClickSound();
+            
+            this.cameras.main.fadeOut(500, 0, 0, 0);
+            this.cameras.main.once('camerafadeoutcomplete', () => {
+                try {
+                    this.scene.start('TitleScene');
+                } catch (menuError) {
+                    console.error('Error returning to menu:', menuError);
+                    // Try reloading as ultimate fallback
+                    window.location.reload();
+                }
+            });
+        } catch (error) {
+            console.error('Error in returnToMenu transition:', error);
+            console.error('Attempting direct menu return...');
+            try {
+                this.scene.start('TitleScene');
+            } catch (fallbackError) {
+                console.error('Ultimate fallback - reloading page:', fallbackError);
+                window.location.reload();
+            }
+        }
     }
 
     update() {
@@ -1348,6 +3246,9 @@ class VictoryScene extends Phaser.Scene {
     }
 
     create() {
+        // Use shared sound manager instance - Phase 3.1
+        this.soundManager = window.globalSoundManager || new SoundManager();
+        
         // Background
         const bgKey = this.textures.exists('background') ? 'background' : 'bg_fallback';
         const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, bgKey);
@@ -1384,18 +3285,185 @@ class VictoryScene extends Phaser.Scene {
         }).setOrigin(0.5).setInteractive();
         
         menuBtn.on('pointerdown', () => {
-            this.scene.start('TitleScene');
+            try {
+                // UI click sound - Phase 3.1
+                this.soundManager.playUIClickSound();
+                
+                this.scene.start('TitleScene');
+            } catch (error) {
+                console.error('Error returning to title from victory:', error);
+                console.error('Attempting page reload...');
+                window.location.reload();
+            }
         });
         
         // Reset game state
         window.gameState.score = 0;
         window.gameState.level = 1;
-        window.gameState.lives = 3;
+        window.gameState.lives = GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES;
+    }
+}
+
+// High Scores Scene - Phase 4.2
+class HighScoresScene extends Phaser.Scene {
+    constructor() {
+        super({ key: 'HighScoresScene' });
+    }
+
+    create() {
+        // Use shared sound manager instance - Phase 3.1
+        this.soundManager = window.globalSoundManager || new SoundManager();
+        
+        // Background
+        const bgKey = this.textures.exists('background') ? 'background' : 'bg_fallback';
+        const bg = this.add.tileSprite(0, 0, this.cameras.main.width, this.cameras.main.height, bgKey);
+        bg.setOrigin(0, 0);
+        bg.setTint(0x000044); // Dark blue tint
+        
+        // Title
+        this.add.text(400, 50, 'HIGH SCORES & ACHIEVEMENTS', {
+            fontSize: '28px',
+            fill: '#f7931a',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        
+        // Get data
+        const highScores = window.highScoreManager.getHighScores();
+        const stats = window.highScoreManager.getStats();
+        const achievements = window.highScoreManager.data.achievements;
+        
+        // High Scores Section
+        this.add.text(200, 100, 'LEADERBOARD', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        
+        if (highScores.length === 0) {
+            this.add.text(200, 130, 'No games completed yet!', {
+                fontSize: '14px',
+                fill: '#cccccc',
+                fontFamily: 'Arial, sans-serif'
+            }).setOrigin(0.5);
+        } else {
+            highScores.slice(0, 5).forEach((score, index) => {
+                const rankText = `${index + 1}.`;
+                const scoreText = `${score.score} pts`;
+                const timeText = score.completionTime ? `${Math.floor(score.completionTime / 1000)}s` : 'N/A';
+                const perfectText = score.perfect ? '⭐' : '';
+                
+                this.add.text(120, 130 + index * 25, rankText, {
+                    fontSize: '14px',
+                    fill: '#f7931a',
+                    fontFamily: 'Arial, sans-serif',
+                    fontWeight: 'bold'
+                }).setOrigin(0, 0.5);
+                
+                this.add.text(150, 130 + index * 25, scoreText, {
+                    fontSize: '14px',
+                    fill: '#ffffff',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0, 0.5);
+                
+                this.add.text(230, 130 + index * 25, timeText, {
+                    fontSize: '12px',
+                    fill: '#cccccc',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0, 0.5);
+                
+                this.add.text(280, 130 + index * 25, perfectText, {
+                    fontSize: '14px',
+                    fill: '#ffff00',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0, 0.5);
+            });
+        }
+        
+        // Statistics Section
+        this.add.text(600, 100, 'STATISTICS', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        
+        const statsData = [
+            `Games Played: ${stats.gamesPlayed}`,
+            `Bitcoins Collected: ${stats.bitcoinsCollected}`,
+            `Total Jumps: ${stats.totalJumps}`,
+            `Double Jumps: ${stats.doubleJumps}`,
+            `Power-ups Used: ${stats.powerUpsCollected}`,
+            `Best Time: ${stats.bestTime ? Math.floor(stats.bestTime / 1000) + 's' : 'N/A'}`
+        ];
+        
+        statsData.forEach((stat, index) => {
+            this.add.text(520, 130 + index * 20, stat, {
+                fontSize: '14px',
+                fill: '#cccccc',
+                fontFamily: 'Arial, sans-serif'
+            }).setOrigin(0, 0.5);
+        });
+        
+        // Achievements Section
+        this.add.text(400, 280, 'ACHIEVEMENTS', {
+            fontSize: '20px',
+            fill: '#ffffff',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+        
+        if (achievements.length === 0) {
+            this.add.text(400, 310, 'No achievements unlocked yet!', {
+                fontSize: '14px',
+                fill: '#cccccc',
+                fontFamily: 'Arial, sans-serif'
+            }).setOrigin(0.5);
+        } else {
+            // Show most recent achievements
+            achievements.slice(-4).reverse().forEach((achievement, index) => {
+                this.add.text(400, 310 + index * 25, `🏆 ${achievement.name}`, {
+                    fontSize: '14px',
+                    fill: '#ffff00',
+                    fontFamily: 'Arial, sans-serif',
+                    fontWeight: 'bold'
+                }).setOrigin(0.5);
+                
+                this.add.text(400, 325 + index * 25, achievement.description, {
+                    fontSize: '12px',
+                    fill: '#cccccc',
+                    fontFamily: 'Arial, sans-serif'
+                }).setOrigin(0.5);
+            });
+        }
+        
+        // Back button
+        const backBtn = this.add.text(400, 520, 'BACK TO MENU', {
+            fontSize: '18px',
+            fill: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5).setInteractive();
+        
+        backBtn.on('pointerover', () => {
+            backBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
+            backBtn.setFill('#ffffff');
+        });
+        
+        backBtn.on('pointerout', () => {
+            backBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
+            backBtn.setFill('#cccccc');
+        });
+        
+        backBtn.on('pointerdown', () => {
+            this.soundManager.playUIClickSound();
+            this.scene.start('TitleScene');
+        });
     }
 }
 
 // Add scenes and start the game
-config.scene = [TitleScene, GameScene, GameOverScene, VictoryScene];
+config.scene = [TitleScene, GameScene, GameOverScene, VictoryScene, HighScoresScene];
 
 // Initialize the game
 const game = new Phaser.Game(config);
