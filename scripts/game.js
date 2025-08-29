@@ -1,5 +1,47 @@
 // Bitcoin Adventure - Optimized Standalone Web Game
 // Clean architecture with essential features only
+console.log('🚀 Bitcoin Adventure v3.2 - CONSOLE TEST!');
+
+// Test basic JavaScript functionality
+window.testGoalDetection = function() {
+    console.log('🧪 Manual test function called!');
+    if (window.game && window.game.scene && window.game.scene.scenes[0]) {
+        const scene = window.game.scene.scenes.find(s => s.scene.key === 'GameScene');
+        if (scene) {
+            console.log('🎮 Found GameScene:', !!scene);
+            console.log('🎯 Current level:', scene.level);
+            console.log('🎯 Goal flag exists:', !!scene.goalFlag);
+            console.log('👤 Player exists:', !!scene.player);
+            console.log('🎯 levelCompleting:', scene.levelCompleting);
+            if (scene.player && scene.goalFlag) {
+                const distance = Phaser.Math.Distance.Between(scene.player.x, scene.player.y, scene.goalFlag.x, scene.goalFlag.y);
+                console.log('📏 Distance to goal flag:', Math.round(distance));
+                
+                // Test with fixed coordinates
+                const fixedDistance = Phaser.Math.Distance.Between(scene.player.x, scene.player.y, 3850, 500);
+                console.log('📏 Distance to FIXED goal (3850, 500):', Math.round(fixedDistance));
+            }
+        }
+    }
+};
+
+// Manual level completion function for testing
+window.forceCompleteLevel = function() {
+    console.log('🚀 Force completing current level...');
+    if (window.game && window.game.scene && window.game.scene.scenes[0]) {
+        const scene = window.game.scene.scenes.find(s => s.scene.key === 'GameScene');
+        if (scene && scene.reachGoal) {
+            scene.reachGoal(scene.player, scene.goalFlag);
+            console.log('✅ Level completion triggered!');
+        } else {
+            console.log('❌ GameScene or reachGoal not found');
+        }
+    }
+};
+
+console.log('🔧 Test functions created:');
+console.log('  - testGoalDetection() - Check goal detection status');  
+console.log('  - forceCompleteLevel() - Manually complete current level');
 
 // Game Constants - Phase 2.1: Extract Magic Numbers to Constants
 const GAME_CONSTANTS = {
@@ -92,6 +134,24 @@ const GAME_CONSTANTS = {
         PARTICLE_SIZE: { start: 4, end: 1 },
         GRAVITY: 200,
         BOUNCE: 0.3
+    },
+    
+    // Level progression settings
+    LEVELS: {
+        TOTAL_LEVELS: 6,
+        DIFFICULTY_SCALING: {
+            ENEMY_SPEED_MULTIPLIER: 1.1, // 10% faster each level
+            BITCOIN_BONUS_MULTIPLIER: 1.2, // 20% more points each level
+            POWERUP_SPAWN_REDUCTION: 0.9 // 10% less likely each level
+        },
+        THEMES: {
+            1: { name: "Mining Mountains", color: 0x8B4513 },
+            2: { name: "Advanced Mining", color: 0x696969 },
+            3: { name: "Deep Mining", color: 0x2F4F4F },
+            4: { name: "Wall Street Wasteland", color: 0x4169E1 },
+            5: { name: "Inflation Island", color: 0xFF6347 },
+            6: { name: "Blockchain Boulevard", color: 0x32CD32 }
+        }
     }
 };
 
@@ -828,18 +888,18 @@ class SoundManager {
             
             console.log('🎵 Starting background music...');
             this.backgroundMusic.currentTime = 0; // Start from beginning
-            this.backgroundMusic.play().then(() => {
-                console.log('✅ Background music playing successfully');
-            }).catch(error => {
-                console.warn('❌ Failed to play background music:', error);
-                // Try again after a short delay
-                setTimeout(() => {
-                    console.log('🔄 Retrying background music...');
-                    this.backgroundMusic.play().catch(retryError => {
-                        console.error('❌ Retry failed:', retryError);
-                    });
-                }, 1000);
-            });
+            const playPromise = this.backgroundMusic.play();
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log('✅ Background music playing successfully');
+                }).catch(error => {
+                    if (error.name === 'NotAllowedError') {
+                        console.log('🔇 Audio blocked by browser - will play after user clicks');
+                    } else {
+                        console.warn('❌ Audio error (non-critical):', error.message);
+                    }
+                });
+            }
         } catch (error) {
             console.error('❌ Error playing background music:', error);
         }
@@ -1673,8 +1733,13 @@ class TitleScene extends Phaser.Scene {
         });
         
         highScoresBtn.on('pointerdown', () => {
-            this.soundManager.playUIClickSound();
-            this.scene.start('HighScoresScene');
+            try {
+                this.soundManager.playUIClickSound();
+                this.scene.start('HighScoresScene');
+            } catch (error) {
+                console.error('Error starting HighScoresScene:', error);
+                console.error('Staying on title screen...');
+            }
         });
         
         this.menuItems = [startBtn, fullscreenBtn, musicBtn, highScoresBtn];
@@ -1847,6 +1912,9 @@ class GameScene extends Phaser.Scene {
         this.powerUpTimer = null;
         this.powerUpIndicator = null;
         
+        // Level progression - Goal flag
+        this.levelCompleting = false;
+        
         // Particle system - Phase 3.3
         this.particleManager = null;
     }
@@ -1920,6 +1988,7 @@ class GameScene extends Phaser.Scene {
         }
         
         // Setup physics and input
+        console.log('🔧 About to setup collisions. Goal flag exists:', !!this.goalFlag, 'Goal zone exists:', !!this.goalZone);
         this.setupCollisions();
         this.setupInput();
         this.setupCamera();
@@ -1975,6 +2044,15 @@ class GameScene extends Phaser.Scene {
                 break;
             case 3:
                 this.createLevel3();
+                break;
+            case 4:
+                this.createLevel4();
+                break;
+            case 5:
+                this.createLevel5();
+                break;
+            case 6:
+                this.createLevel6();
                 break;
             default:
                 this.createAdvancedLevel(this.level);
@@ -2104,6 +2182,149 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    createLevel4() {
+        // Level 4: Wall Street Wasteland - Corporate banking theme
+        // Taller buildings with corporate-style platforms, more vertical challenges
+        const platforms = [
+            // Corporate tower base (like building foundations)
+            { x: 200, y: 480, scale: 2 },
+            { x: 450, y: 420, scale: 1.5 },
+            { x: 700, y: 360, scale: 2 },
+            
+            // First corporate building - step-like structure
+            { x: 950, y: 480, scale: 1 },
+            { x: 1050, y: 420, scale: 1 },
+            { x: 1150, y: 360, scale: 1 },
+            { x: 1250, y: 300, scale: 1.5 }, // Executive floor
+            
+            // Banking district - wider platforms for "bank buildings"
+            { x: 1500, y: 450, scale: 2.5 }, // Main bank platform
+            { x: 1750, y: 350, scale: 1.5 }, // Upper bank floor
+            { x: 2000, y: 280, scale: 2 }, // Executive suites
+            
+            // Stock exchange area - volatile platforms (different heights)
+            { x: 2300, y: 400, scale: 1 }, // Trading floor
+            { x: 2500, y: 200, scale: 1 }, // High-frequency trading (high risk)
+            { x: 2700, y: 480, scale: 1.5 }, // Market crash recovery
+            { x: 2900, y: 320, scale: 1 }, // Volatility platform
+            
+            // Federal Reserve building - imposing structure
+            { x: 3200, y: 380, scale: 2.5 }, // Fed main floor
+            { x: 3450, y: 250, scale: 2 }, // Fed upper floor
+            { x: 3700, y: 180, scale: 3 }, // Fed penthouse (final platform)
+            
+            // Emergency bailout routes (lower recovery paths)
+            { x: 800, y: 520, scale: 1.5 },
+            { x: 1400, y: 520, scale: 1.5 },
+            { x: 1900, y: 500, scale: 1 },
+            { x: 2400, y: 520, scale: 1.5 },
+            { x: 2800, y: 500, scale: 1 },
+            { x: 3100, y: 520, scale: 2 },
+            { x: 3500, y: 480, scale: 1.5 }
+        ];
+        
+        platforms.forEach(platform => {
+            this.platforms.create(platform.x, platform.y, 'platform').setScale(platform.scale, 1).refreshBody();
+        });
+    }
+
+    createLevel5() {
+        // Level 5: Inflation Island - Economic instability theme
+        // Platforms at varying heights representing economic volatility
+        const platforms = [
+            // Currency devaluation start (platforms getting "smaller")
+            { x: 250, y: 450, scale: 2 },
+            { x: 500, y: 380, scale: 1.8 }, // Slightly smaller
+            { x: 750, y: 320, scale: 1.5 }, // Getting smaller
+            { x: 1000, y: 280, scale: 1.2 }, // Shrinking value
+            
+            // Hyperinflation zone - chaotic platform heights
+            { x: 1200, y: 150, scale: 1 }, // Very high (expensive goods)
+            { x: 1400, y: 500, scale: 1 }, // Very low (worthless currency)
+            { x: 1600, y: 200, scale: 1 }, // High again
+            { x: 1800, y: 450, scale: 1.5 }, // Volatile
+            { x: 2000, y: 120, scale: 1 }, // Peak inflation
+            
+            // Central bank money printing area - "artificial" platforms
+            { x: 2200, y: 350, scale: 2 }, // Money printer platform
+            { x: 2450, y: 280, scale: 1.5 }, // QE platform
+            { x: 2700, y: 400, scale: 2 }, // Stimulus platform
+            { x: 2950, y: 180, scale: 1 }, // Interest rate platform
+            
+            // Economic collapse and recovery
+            { x: 3150, y: 480, scale: 1 }, // Market crash
+            { x: 3300, y: 350, scale: 1.5 }, // Partial recovery
+            { x: 3500, y: 250, scale: 2 }, // Bitcoin standard platform
+            { x: 3750, y: 160, scale: 3 }, // Sound money victory
+            
+            // Bailout routes (representing government intervention)
+            { x: 400, y: 520, scale: 1.5 },
+            { x: 850, y: 500, scale: 1 },
+            { x: 1300, y: 520, scale: 1.5 },
+            { x: 1700, y: 510, scale: 1 },
+            { x: 2100, y: 520, scale: 1.5 },
+            { x: 2500, y: 500, scale: 1 },
+            { x: 2850, y: 520, scale: 1.5 },
+            { x: 3200, y: 500, scale: 1 },
+            { x: 3600, y: 480, scale: 2 }
+        ];
+        
+        platforms.forEach(platform => {
+            this.platforms.create(platform.x, platform.y, 'platform').setScale(platform.scale, 1).refreshBody();
+        });
+    }
+
+    createLevel6() {
+        // Level 6: Blockchain Boulevard - Final level, tech/crypto theme
+        // Clean, geometric platforms representing blockchain structure
+        const platforms = [
+            // Genesis block area
+            { x: 200, y: 400, scale: 2 }, // Genesis block
+            { x: 450, y: 350, scale: 1.5 }, // Block 1
+            { x: 700, y: 300, scale: 1.5 }, // Block 2
+            
+            // Early blockchain - regular structure
+            { x: 950, y: 350, scale: 1 }, // Block 3
+            { x: 1150, y: 300, scale: 1 }, // Block 4
+            { x: 1350, y: 250, scale: 1 }, // Block 5
+            { x: 1550, y: 200, scale: 1.5 }, // Difficulty adjustment
+            
+            // Mining difficulty increase - higher platforms
+            { x: 1800, y: 180, scale: 1 }, // High difficulty block
+            { x: 2000, y: 320, scale: 1.5 }, // Mining pool
+            { x: 2200, y: 150, scale: 1 }, // ASIC mining era
+            { x: 2450, y: 280, scale: 2 }, // Mining farm platform
+            
+            // Network effects - interconnected platforms
+            { x: 2700, y: 200, scale: 1.5 }, // Network node
+            { x: 2900, y: 350, scale: 1 }, // Lightning network
+            { x: 3100, y: 180, scale: 1.5 }, // Layer 2 solution
+            { x: 3300, y: 300, scale: 2 }, // Full node
+            
+            // Bitcoin maximalist victory - ascending to sound money
+            { x: 3550, y: 220, scale: 1.5 }, // Approaching victory
+            { x: 3750, y: 140, scale: 3 }, // Bitcoin victory platform
+            
+            // Hash rate security (lower platforms for security)
+            { x: 350, y: 520, scale: 2 },
+            { x: 600, y: 480, scale: 1.5 },
+            { x: 850, y: 500, scale: 1 },
+            { x: 1100, y: 480, scale: 1.5 },
+            { x: 1400, y: 520, scale: 1 },
+            { x: 1700, y: 500, scale: 1.5 },
+            { x: 2050, y: 480, scale: 1 },
+            { x: 2350, y: 520, scale: 1.5 },
+            { x: 2650, y: 500, scale: 1 },
+            { x: 2950, y: 480, scale: 1.5 },
+            { x: 3250, y: 520, scale: 1 },
+            { x: 3500, y: 480, scale: 2 }
+        ];
+        
+        platforms.forEach(platform => {
+            this.platforms.create(platform.x, platform.y, 'platform').setScale(platform.scale, 1).refreshBody();
+        });
+    }
+
     createAdvancedLevel(level) {
         // Procedural level generation with varied platforms across wider area
         const platformCount = Math.min(15 + level * 2, 25);
@@ -2117,29 +2338,50 @@ class GameScene extends Phaser.Scene {
     }
 
     createGoalFlag() {
-        // Create a more visible goal flag
-        const flagGraphics = this.add.graphics();
+        // Create a more visible goal flag using a simple rectangle as fallback
+        if (!this.textures.exists('flag')) {
+            const flagGraphics = this.add.graphics();
+            
+            // Flag pole
+            flagGraphics.fillStyle(0x8B4513); // Brown pole
+            flagGraphics.fillRect(0, 0, 8, 80);
+            
+            // Flag
+            flagGraphics.fillStyle(0x00ff00); // Green flag
+            flagGraphics.fillRect(8, 0, 40, 25);
+            
+            // Flag pattern
+            flagGraphics.fillStyle(0xffff00); // Yellow stripe
+            flagGraphics.fillRect(8, 10, 40, 5);
+            
+            flagGraphics.generateTexture('flag', 48, 80);
+            flagGraphics.destroy();
+        }
         
-        // Flag pole
-        flagGraphics.fillStyle(0x8B4513); // Brown pole
-        flagGraphics.fillRect(0, 0, 8, 80);
+        // Create goal flag as regular sprite first, then add physics
+        this.goalFlag = this.add.sprite(3850, 500, 'flag');
+        this.goalFlag.setOrigin(0.5, 1); // Center-bottom origin for better collision
         
-        // Flag
-        flagGraphics.fillStyle(0x00ff00); // Green flag
-        flagGraphics.fillRect(8, 0, 40, 25);
+        // Verify position before adding physics
+        console.log('🎯 Goal flag BEFORE physics:', this.goalFlag.x, this.goalFlag.y);
         
-        // Flag pattern
-        flagGraphics.fillStyle(0xffff00); // Yellow stripe
-        flagGraphics.fillRect(8, 10, 40, 5);
+        // Add physics separately
+        this.physics.world.enable(this.goalFlag);
+        this.goalFlag.body.setImmovable(true);
         
-        flagGraphics.generateTexture('flag', 48, 80);
-        flagGraphics.destroy();
+        // Verify position after adding physics
+        console.log('🎯 Goal flag AFTER physics:', this.goalFlag.x, this.goalFlag.y);
         
-        // Position flag at the end of the level - much more visible
-        this.goalFlag = this.physics.add.sprite(3900, 480, 'flag');
-        this.goalFlag.setImmovable(true);
-        this.goalFlag.body.setSize(48, 80);
-        this.goalFlag.setOrigin(0, 1); // Bottom-left origin so it sits on ground properly
+        // Lock position to prevent corruption
+        this.goalFlag.body.setVelocity(0, 0);
+        this.goalFlag.body.setAcceleration(0, 0);
+        this.goalFlag.body.setGravityY(0);
+        
+        // Make the collision area larger to ensure detection
+        this.goalFlag.body.setSize(80, 120); // Much larger collision area
+        this.goalFlag.body.setOffset(-16, -20); // Adjust offset for larger collision area
+        
+        console.log('🚩 Goal flag created at:', this.goalFlag.x, this.goalFlag.y, 'Body size:', this.goalFlag.body.width, 'x', this.goalFlag.body.height);
         
         // Add a glowing effect to make it more visible
         this.tweens.add({
@@ -2151,14 +2393,44 @@ class GameScene extends Phaser.Scene {
             ease: 'Sine.easeInOut'
         });
         
-        // Add text above flag
-        this.add.text(3900, 420, 'GOAL!', {
-            fontSize: '24px',
+        // Add multiple visual indicators
+        this.add.text(3850, 400, 'GOAL!', {
+            fontSize: '32px',
             fill: '#00ff00',
+            fontFamily: 'Arial, sans-serif',
+            stroke: '#000000',
+            strokeThickness: 3
+        }).setOrigin(0.5, 1);
+        
+        // Add arrow pointing to flag
+        this.add.text(3850, 450, '↓', {
+            fontSize: '48px',
+            fill: '#ffff00',
             fontFamily: 'Arial, sans-serif',
             stroke: '#000000',
             strokeThickness: 2
         }).setOrigin(0.5, 1);
+        
+        // Add a visible collision box for debugging (remove this later)
+        const debugBox = this.add.rectangle(3850, 500, 80, 120, 0xff0000, 0.2);
+        debugBox.setOrigin(0.5, 1);
+        
+        // Verify position immediately after creation
+        console.log('🎯 Goal flag created at position:', this.goalFlag.x, this.goalFlag.y);
+        console.log('🎯 Goal flag body position:', this.goalFlag.body.x, this.goalFlag.body.y);
+        
+        // Force position if corrupted
+        if (this.goalFlag.y > 1000 || this.goalFlag.y < 0) {
+            console.log('🚨 Goal flag Y position corrupted! Fixing...');
+            this.goalFlag.setPosition(3850, 500);
+            console.log('🔧 Fixed goal flag position:', this.goalFlag.x, this.goalFlag.y);
+        }
+        
+        // Add manual collision detection as backup
+        this.goalZone = this.add.zone(3850, 500, 100, 150);
+        this.physics.world.enable(this.goalZone);
+        this.goalZone.body.setImmovable(true);
+        console.log('🎯 Goal zone created at:', this.goalZone.x, this.goalZone.y, 'Size:', this.goalZone.width, 'x', this.goalZone.height);
     }
 
     // Power-up texture creation - Phase 3.2
@@ -2277,42 +2549,31 @@ class GameScene extends Phaser.Scene {
             immovable: true       // Make all coins immovable
         });
         
-        // Strategic bitcoin placement with emphasis on platform heights and above (26 coins total)
-        const bitcoinPositions = [
-            // Early section - encouraging platform use
-            { x: 350, y: 420 },  // Above starting platform (moved up)
-            { x: 450, y: 320 },  // High above starting area
-            { x: 650, y: 360 },  // Above first jump platform (moved up)
-            { x: 750, y: 300 },  // Between platforms (moved up)
-            { x: 850, y: 220 },  // High reward early
-            { x: 950, y: 320 },  // Above platform height
-            
-            // Middle progression - platform focused
-            { x: 1150, y: 260 }, // Above medium platform (moved up)
-            { x: 1250, y: 180 }, // High reward sequence
-            { x: 1350, y: 180 }, // Continuing high sequence
-            { x: 1450, y: 290 }, // Above bridge platform (moved up)
-            { x: 1550, y: 220 }, // Platform level (moved up)
-            { x: 1650, y: 220 }, // Above platform
-            { x: 1750, y: 400 }, // Recovery platform height (moved up)
-            { x: 1850, y: 180 }, // High risk, high reward
-            { x: 1950, y: 290 }, // Platform height (moved up)
-            { x: 2050, y: 240 }, // Mid height challenge (moved up)
-            
-            // Challenge area - mostly high rewards
-            { x: 2200, y: 150 }, // High challenge
-            { x: 2350, y: 190 }, // Above challenge platform (moved up)
-            { x: 2500, y: 390 }, // High path reward (moved up)
-            { x: 2600, y: 320 }, // Platform level option (moved up)
-            
-            // Final area - mixed heights but favoring platforms
-            { x: 2800, y: 220 }, // High path option
-            { x: 2950, y: 360 }, // Mid-height option (moved up)
-            { x: 3100, y: 220 }, // Above platform (moved up)
-            { x: 3250, y: 320 }, // Platform level
-            { x: 3400, y: 320 }, // Mid height final stretch (moved up)
-            { x: 3550, y: 140 }  // High reward above final platform
-        ];
+        // Level-specific bitcoin placement
+        let bitcoinPositions = [];
+        
+        switch (this.level) {
+            case 1:
+                bitcoinPositions = this.getBitcoinPositionsLevel1();
+                break;
+            case 2:
+                bitcoinPositions = this.getBitcoinPositionsLevel2();
+                break;
+            case 3:
+                bitcoinPositions = this.getBitcoinPositionsLevel3();
+                break;
+            case 4:
+                bitcoinPositions = this.getBitcoinPositionsLevel4();
+                break;
+            case 5:
+                bitcoinPositions = this.getBitcoinPositionsLevel5();
+                break;
+            case 6:
+                bitcoinPositions = this.getBitcoinPositionsLevel6();
+                break;
+            default:
+                bitcoinPositions = this.getBitcoinPositionsAdvanced();
+        }
         
         bitcoinPositions.forEach((pos) => {
             const bitcoinKey = this.textures.exists('bitcoin') ? 'bitcoin' : 'bitcoin_fallback';
@@ -2341,24 +2602,219 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    getBitcoinPositionsLevel1() {
+        // Original Level 1 bitcoin positions - Mining Mountains theme
+        return [
+            // Early section - encouraging platform use
+            { x: 350, y: 420 },  // Above starting platform
+            { x: 450, y: 320 },  // High above starting area
+            { x: 650, y: 360 },  // Above first jump platform
+            { x: 750, y: 300 },  // Between platforms
+            { x: 850, y: 220 },  // High reward early
+            { x: 950, y: 320 },  // Above platform height
+            
+            // Middle progression - platform focused
+            { x: 1150, y: 260 }, // Above medium platform
+            { x: 1250, y: 180 }, // High reward sequence
+            { x: 1350, y: 180 }, // Continuing high sequence
+            { x: 1450, y: 290 }, // Above bridge platform
+            { x: 1550, y: 220 }, // Platform level
+            { x: 1650, y: 220 }, // Above platform
+            { x: 1750, y: 400 }, // Recovery platform height
+            { x: 1850, y: 180 }, // High risk, high reward
+            { x: 1950, y: 290 }, // Platform height
+            { x: 2050, y: 240 }, // Mid height challenge
+            
+            // Challenge area - mostly high rewards
+            { x: 2200, y: 150 }, // High challenge
+            { x: 2350, y: 190 }, // Above challenge platform
+            { x: 2500, y: 390 }, // High path reward
+            { x: 2600, y: 320 }, // Platform level option
+            
+            // Final area - mixed heights but favoring platforms
+            { x: 2800, y: 220 }, // High path option
+            { x: 2950, y: 360 }, // Mid-height option
+            { x: 3100, y: 220 }, // Above platform
+            { x: 3250, y: 320 }, // Platform level
+            { x: 3400, y: 320 }, // Mid height final stretch
+            { x: 3550, y: 140 }  // High reward above final platform
+        ];
+    }
+
+    getBitcoinPositionsLevel2() {
+        // Level 2: More challenging placement - Advanced Mining
+        return [
+            { x: 300, y: 390 }, { x: 550, y: 290 }, { x: 800, y: 220 },
+            { x: 1100, y: 320 }, { x: 1400, y: 190 }, { x: 1700, y: 340 },
+            { x: 2000, y: 120 }, { x: 2300, y: 260 }, { x: 2600, y: 160 },
+            { x: 2900, y: 290 }, { x: 3200, y: 120 }, { x: 3500, y: 220 },
+            { x: 3750, y: 140 }, // High final reward
+            
+            // Additional scattered bitcoins
+            { x: 450, y: 460 }, { x: 700, y: 440 }, { x: 950, y: 420 },
+            { x: 1250, y: 460 }, { x: 1550, y: 440 }, { x: 1850, y: 420 },
+            { x: 2150, y: 400 }, { x: 2450, y: 440 }, { x: 2750, y: 420 },
+            { x: 3050, y: 390 }, { x: 3350, y: 460 }, { x: 3600, y: 390 }
+        ];
+    }
+
+    getBitcoinPositionsLevel3() {
+        // Level 3: Most complex placement with multiple route rewards - Deep Mining
+        return [
+            // High route rewards
+            { x: 250, y: 240 }, { x: 450, y: 140 }, { x: 700, y: 90 },
+            { x: 950, y: 60 }, { x: 1250, y: 120 }, { x: 1500, y: 40 },
+            { x: 1750, y: 90 }, { x: 2000, y: 140 }, { x: 2300, y: 60 },
+            { x: 2550, y: 100 }, { x: 2850, y: 40 }, { x: 3150, y: 120 },
+            { x: 3450, y: 80 }, { x: 3750, y: 140 },
+            
+            // Medium route rewards
+            { x: 300, y: 340 }, { x: 550, y: 290 }, { x: 800, y: 240 },
+            { x: 1050, y: 220 }, { x: 1350, y: 260 }, { x: 1650, y: 220 },
+            { x: 1900, y: 290 }, { x: 2200, y: 240 }, { x: 2500, y: 220 },
+            { x: 2800, y: 260 }, { x: 3100, y: 240 }, { x: 3400, y: 290 },
+            
+            // Low route rewards
+            { x: 350, y: 440 }, { x: 650, y: 420 }, { x: 900, y: 400 },
+            { x: 1200, y: 460 }, { x: 1450, y: 420 }, { x: 1800, y: 440 }
+        ];
+    }
+
+    getBitcoinPositionsLevel4() {
+        // Level 4: Wall Street Wasteland - Corporate theme
+        return [
+            // Corporate tower bitcoins
+            { x: 250, y: 420 }, { x: 500, y: 360 }, { x: 750, y: 300 },
+            
+            // Building climb rewards
+            { x: 1000, y: 420 }, { x: 1100, y: 360 }, { x: 1200, y: 300 },
+            { x: 1300, y: 240 }, // Executive bonus
+            
+            // Banking district
+            { x: 1550, y: 390 }, { x: 1800, y: 290 }, { x: 2050, y: 220 },
+            
+            // Stock exchange volatility
+            { x: 2350, y: 340 }, { x: 2550, y: 140 }, { x: 2750, y: 420 },
+            { x: 2950, y: 260 },
+            
+            // Federal Reserve
+            { x: 3250, y: 320 }, { x: 3500, y: 190 }, { x: 3750, y: 120 },
+            
+            // Bailout route bitcoins (easier to get)
+            { x: 850, y: 460 }, { x: 1450, y: 460 }, { x: 1950, y: 440 },
+            { x: 2450, y: 460 }, { x: 2850, y: 440 }, { x: 3150, y: 460 },
+            { x: 3550, y: 420 },
+            
+            // Bonus high-risk bitcoins
+            { x: 1350, y: 180 }, { x: 2100, y: 160 }, { x: 3550, y: 60 }
+        ];
+    }
+
+    getBitcoinPositionsLevel5() {
+        // Level 5: Inflation Island - Economic chaos theme
+        return [
+            // Currency devaluation sequence
+            { x: 300, y: 390 }, { x: 550, y: 320 }, { x: 800, y: 260 },
+            { x: 1050, y: 220 },
+            
+            // Hyperinflation chaos - high risk, high reward
+            { x: 1250, y: 90 }, { x: 1450, y: 440 }, { x: 1650, y: 140 },
+            { x: 1850, y: 390 }, { x: 2050, y: 60 },
+            
+            // Central bank area
+            { x: 2250, y: 290 }, { x: 2500, y: 220 }, { x: 2750, y: 340 },
+            { x: 3000, y: 120 },
+            
+            // Recovery sequence
+            { x: 3200, y: 420 }, { x: 3350, y: 290 }, { x: 3550, y: 190 },
+            { x: 3800, y: 100 }, // Sound money victory
+            
+            // Bailout bitcoins
+            { x: 450, y: 460 }, { x: 900, y: 440 }, { x: 1350, y: 460 },
+            { x: 1750, y: 450 }, { x: 2150, y: 460 }, { x: 2550, y: 440 },
+            { x: 2900, y: 460 }, { x: 3250, y: 440 }, { x: 3650, y: 420 },
+            
+            // Volatility bonus bitcoins
+            { x: 1300, y: 300 }, { x: 1750, y: 250 }, { x: 2400, y: 350 }
+        ];
+    }
+
+    getBitcoinPositionsLevel6() {
+        // Level 6: Blockchain Boulevard - Tech/crypto theme finale
+        return [
+            // Genesis block area
+            { x: 250, y: 340 }, { x: 500, y: 290 }, { x: 750, y: 240 },
+            
+            // Early blockchain
+            { x: 1000, y: 290 }, { x: 1200, y: 240 }, { x: 1400, y: 190 },
+            { x: 1600, y: 140 },
+            
+            // Mining era
+            { x: 1850, y: 120 }, { x: 2050, y: 260 }, { x: 2250, y: 90 },
+            { x: 2500, y: 220 },
+            
+            // Network effects
+            { x: 2750, y: 140 }, { x: 2950, y: 290 }, { x: 3150, y: 120 },
+            { x: 3350, y: 240 },
+            
+            // Victory approach
+            { x: 3600, y: 160 }, { x: 3800, y: 80 }, // Final bitcoins
+            
+            // Hash rate security bitcoins
+            { x: 400, y: 460 }, { x: 650, y: 420 }, { x: 900, y: 440 },
+            { x: 1150, y: 420 }, { x: 1450, y: 460 }, { x: 1750, y: 440 },
+            { x: 2100, y: 420 }, { x: 2400, y: 460 }, { x: 2700, y: 440 },
+            { x: 3000, y: 420 }, { x: 3300, y: 460 }, { x: 3550, y: 420 },
+            
+            // Bonus tech bitcoins
+            { x: 1100, y: 200 }, { x: 1800, y: 300 }, { x: 2600, y: 180 },
+            { x: 3400, y: 100 }
+        ];
+    }
+
+    getBitcoinPositionsAdvanced() {
+        // Procedural bitcoin placement for levels beyond 6
+        const bitcoinCount = Math.min(20 + this.level * 2, 35);
+        const positions = [];
+        
+        for (let i = 0; i < bitcoinCount; i++) {
+            positions.push({
+                x: Phaser.Math.Between(300, 3700),
+                y: Phaser.Math.Between(150, 500)
+            });
+        }
+        
+        return positions;
+    }
+
     createEnemies() {
         this.enemies = this.physics.add.group();
         
-        // Better balanced enemy placement between ground and platforms (8 total)
-        const enemyPlacements = [
-            // Ground enemies (4) - start just above ground platform so they land on it
-            { x: 1000, y: 560, patrolMin: 950, patrolMax: 1100, platform: 'ground' }, // Move to clear area
-            { x: 1800, y: 560, patrolMin: 1650, patrolMax: 1950, platform: 'ground' },
-            { x: 2400, y: 560, patrolMin: 2250, patrolMax: 2550, platform: 'ground' },
-            { x: 3200, y: 560, patrolMin: 3050, patrolMax: 3280, platform: 'ground' },
-            
-            // Platform enemies (4) - matching actual platform heights from createLevel1
-            // Adjusted y values to be exactly on the platforms
-            { x: 1200, y: 288, patrolMin: 1100, patrolMax: 1300, platform: 'platform' },  // Platform at y:320
-            { x: 1900, y: 318, patrolMin: 1750, patrolMax: 2050, platform: 'platform' },  // Platform at y:350
-            { x: 2300, y: 218, patrolMin: 2200, patrolMax: 2400, platform: 'platform' },  // Platform at y:250
-            { x: 3100, y: 248, patrolMin: 3000, patrolMax: 3200, platform: 'platform' }   // Platform at y:280
-        ];
+        // Level-specific enemy placement with increasing difficulty
+        let enemyPlacements = [];
+        
+        switch (this.level) {
+            case 1:
+                enemyPlacements = this.getEnemyPlacementsLevel1();
+                break;
+            case 2:
+                enemyPlacements = this.getEnemyPlacementsLevel2();
+                break;
+            case 3:
+                enemyPlacements = this.getEnemyPlacementsLevel3();
+                break;
+            case 4:
+                enemyPlacements = this.getEnemyPlacementsLevel4();
+                break;
+            case 5:
+                enemyPlacements = this.getEnemyPlacementsLevel5();
+                break;
+            case 6:
+                enemyPlacements = this.getEnemyPlacementsLevel6();
+                break;
+            default:
+                enemyPlacements = this.getEnemyPlacementsAdvanced();
+        }
         
         enemyPlacements.forEach(placement => {
             const enemyKey = this.textures.exists('enemy') ? 'enemy' : 'enemy_fallback';
@@ -2396,6 +2852,173 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    getEnemyPlacementsLevel1() {
+        // Level 1: Basic enemy placement - Mining Mountains
+        return [
+            // Ground enemies (4)
+            { x: 1000, y: 560, patrolMin: 950, patrolMax: 1100, platform: 'ground' },
+            { x: 1800, y: 560, patrolMin: 1650, patrolMax: 1950, platform: 'ground' },
+            { x: 2400, y: 560, patrolMin: 2250, patrolMax: 2550, platform: 'ground' },
+            { x: 3200, y: 560, patrolMin: 3050, patrolMax: 3280, platform: 'ground' },
+            
+            // Platform enemies (4)
+            { x: 1200, y: 288, patrolMin: 1100, patrolMax: 1300, platform: 'platform' },
+            { x: 1900, y: 318, patrolMin: 1750, patrolMax: 2050, platform: 'platform' },
+            { x: 2300, y: 218, patrolMin: 2200, patrolMax: 2400, platform: 'platform' },
+            { x: 3100, y: 248, patrolMin: 3000, patrolMax: 3200, platform: 'platform' }
+        ];
+    }
+
+    getEnemyPlacementsLevel2() {
+        // Level 2: Increased difficulty - Advanced Mining
+        return [
+            // Ground enemies (5)
+            { x: 800, y: 560, patrolMin: 700, patrolMax: 900, platform: 'ground' },
+            { x: 1400, y: 560, patrolMin: 1250, patrolMax: 1550, platform: 'ground' },
+            { x: 2000, y: 560, patrolMin: 1850, patrolMax: 2150, platform: 'ground' },
+            { x: 2600, y: 560, patrolMin: 2450, patrolMax: 2750, platform: 'ground' },
+            { x: 3400, y: 560, patrolMin: 3250, patrolMax: 3550, platform: 'ground' },
+            
+            // Platform enemies (6)
+            { x: 750, y: 248, patrolMin: 650, patrolMax: 850, platform: 'platform' },
+            { x: 1350, y: 218, patrolMin: 1250, patrolMax: 1450, platform: 'platform' },
+            { x: 1650, y: 368, patrolMin: 1550, patrolMax: 1750, platform: 'platform' },
+            { x: 2250, y: 288, patrolMin: 2150, patrolMax: 2350, platform: 'platform' },
+            { x: 2850, y: 318, patrolMin: 2750, patrolMax: 2950, platform: 'platform' },
+            { x: 3450, y: 248, patrolMin: 3350, patrolMax: 3550, platform: 'platform' }
+        ];
+    }
+
+    getEnemyPlacementsLevel3() {
+        // Level 3: High difficulty - Deep Mining
+        return [
+            // Ground enemies (6)
+            { x: 600, y: 560, patrolMin: 500, patrolMax: 700, platform: 'ground' },
+            { x: 1100, y: 560, patrolMin: 950, patrolMax: 1250, platform: 'ground' },
+            { x: 1600, y: 560, patrolMin: 1450, patrolMax: 1750, platform: 'ground' },
+            { x: 2200, y: 560, patrolMin: 2050, patrolMax: 2350, platform: 'ground' },
+            { x: 2800, y: 560, patrolMin: 2650, patrolMax: 2950, platform: 'ground' },
+            { x: 3400, y: 560, patrolMin: 3250, patrolMax: 3550, platform: 'ground' },
+            
+            // Platform enemies (8) - multiple routes
+            { x: 400, y: 168, patrolMin: 300, patrolMax: 500, platform: 'platform' }, // High route
+            { x: 900, y: 88, patrolMin: 800, patrolMax: 1000, platform: 'platform' }, // Very high
+            { x: 1450, y: 68, patrolMin: 1350, patrolMax: 1550, platform: 'platform' }, // Extreme high
+            { x: 1950, y: 168, patrolMin: 1850, patrolMax: 2050, platform: 'platform' }, // High route
+            { x: 2500, y: 88, patrolMin: 2400, patrolMax: 2600, platform: 'platform' }, // Very high
+            { x: 3100, y: 148, patrolMin: 3000, patrolMax: 3200, platform: 'platform' }, // High route
+            { x: 1300, y: 288, patrolMin: 1200, patrolMax: 1400, platform: 'platform' }, // Medium route
+            { x: 2750, y: 288, patrolMin: 2650, patrolMax: 2850, platform: 'platform' } // Medium route
+        ];
+    }
+
+    getEnemyPlacementsLevel4() {
+        // Level 4: Wall Street Wasteland - Corporate enemies
+        return [
+            // Ground "security guards" (5)
+            { x: 900, y: 560, patrolMin: 750, patrolMax: 1050, platform: 'ground' },
+            { x: 1600, y: 560, patrolMin: 1400, patrolMax: 1800, platform: 'ground' },
+            { x: 2200, y: 560, patrolMin: 2000, patrolMax: 2400, platform: 'ground' },
+            { x: 2800, y: 560, patrolMin: 2600, patrolMax: 3000, platform: 'ground' },
+            { x: 3400, y: 560, patrolMin: 3200, patrolMax: 3600, platform: 'ground' },
+            
+            // Corporate "executives" on platforms (7)
+            { x: 700, y: 328, patrolMin: 600, patrolMax: 800, platform: 'platform' }, // Corporate tower
+            { x: 1250, y: 268, patrolMin: 1150, patrolMax: 1350, platform: 'platform' }, // Executive floor
+            { x: 1500, y: 418, patrolMin: 1400, patrolMax: 1600, platform: 'platform' }, // Bank main floor
+            { x: 2000, y: 248, patrolMin: 1900, patrolMax: 2100, platform: 'platform' }, // Executive suites
+            { x: 2300, y: 368, patrolMin: 2200, patrolMax: 2400, platform: 'platform' }, // Trading floor
+            { x: 3200, y: 348, patrolMin: 3100, patrolMax: 3300, platform: 'platform' }, // Fed main floor
+            { x: 3700, y: 148, patrolMin: 3600, patrolMax: 3800, platform: 'platform' } // Fed penthouse
+        ];
+    }
+
+    getEnemyPlacementsLevel5() {
+        // Level 5: Inflation Island - Economic chaos with erratic enemies
+        return [
+            // Ground "inflation victims" (6)
+            { x: 700, y: 560, patrolMin: 550, patrolMax: 850, platform: 'ground' },
+            { x: 1200, y: 560, patrolMin: 1000, patrolMax: 1400, platform: 'ground' },
+            { x: 1700, y: 560, patrolMin: 1500, patrolMax: 1900, platform: 'ground' },
+            { x: 2300, y: 560, patrolMin: 2100, patrolMax: 2500, platform: 'ground' },
+            { x: 2900, y: 560, patrolMin: 2700, patrolMax: 3100, platform: 'ground' },
+            { x: 3500, y: 560, patrolMin: 3300, patrolMax: 3700, platform: 'ground' },
+            
+            // Platform "central bankers" (8) - chaotic heights
+            { x: 750, y: 288, patrolMin: 650, patrolMax: 850, platform: 'platform' }, // Devaluation
+            { x: 1200, y: 118, patrolMin: 1100, patrolMax: 1300, platform: 'platform' }, // Hyperinflation high
+            { x: 1600, y: 168, patrolMin: 1500, patrolMax: 1700, platform: 'platform' }, // Volatile
+            { x: 2000, y: 88, patrolMin: 1900, patrolMax: 2100, platform: 'platform' }, // Peak inflation
+            { x: 2200, y: 318, patrolMin: 2100, patrolMax: 2300, platform: 'platform' }, // Money printer
+            { x: 2700, y: 368, patrolMin: 2600, patrolMax: 2800, platform: 'platform' }, // Stimulus
+            { x: 2950, y: 148, patrolMin: 2850, patrolMax: 3050, platform: 'platform' }, // Interest rates
+            { x: 3300, y: 318, patrolMin: 3200, patrolMax: 3400, platform: 'platform' } // Recovery
+        ];
+    }
+
+    getEnemyPlacementsLevel6() {
+        // Level 6: Blockchain Boulevard - Final boss-like enemies
+        return [
+            // Ground "legacy system defenders" (7)
+            { x: 600, y: 560, patrolMin: 450, patrolMax: 750, platform: 'ground' },
+            { x: 1000, y: 560, patrolMin: 850, patrolMax: 1150, platform: 'ground' },
+            { x: 1500, y: 560, patrolMin: 1350, patrolMax: 1650, platform: 'ground' },
+            { x: 2000, y: 560, patrolMin: 1850, patrolMax: 2150, platform: 'ground' },
+            { x: 2500, y: 560, patrolMin: 2350, patrolMax: 2650, platform: 'ground' },
+            { x: 3000, y: 560, patrolMin: 2850, patrolMax: 3150, platform: 'ground' },
+            { x: 3500, y: 560, patrolMin: 3350, patrolMax: 3650, platform: 'ground' },
+            
+            // Platform "blockchain validators" (9) - tech-themed
+            { x: 450, y: 318, patrolMin: 350, patrolMax: 550, platform: 'platform' }, // Block 1
+            { x: 950, y: 318, patrolMin: 850, patrolMax: 1050, platform: 'platform' }, // Block 3
+            { x: 1350, y: 218, patrolMin: 1250, patrolMax: 1450, platform: 'platform' }, // Block 5
+            { x: 1800, y: 148, patrolMin: 1700, patrolMax: 1900, platform: 'platform' }, // High difficulty
+            { x: 2200, y: 118, patrolMin: 2100, patrolMax: 2300, platform: 'platform' }, // ASIC era
+            { x: 2700, y: 168, patrolMin: 2600, patrolMax: 2800, platform: 'platform' }, // Network node
+            { x: 2900, y: 318, patrolMin: 2800, patrolMax: 3000, platform: 'platform' }, // Lightning
+            { x: 3300, y: 268, patrolMin: 3200, patrolMax: 3400, platform: 'platform' }, // Full node
+            { x: 3750, y: 108, patrolMin: 3650, patrolMax: 3850, platform: 'platform' } // Final guardian
+        ];
+    }
+
+    getEnemyPlacementsAdvanced() {
+        // Procedural enemy placement for levels beyond 6
+        const enemyCount = Math.min(8 + this.level * 2, 20);
+        const placements = [];
+        
+        // Generate ground enemies
+        for (let i = 0; i < Math.floor(enemyCount / 2); i++) {
+            const x = Phaser.Math.Between(800, 3500);
+            placements.push({
+                x: x,
+                y: 560,
+                patrolMin: x - 150,
+                patrolMax: x + 150,
+                platform: 'ground'
+            });
+        }
+        
+        // Generate platform enemies
+        for (let i = 0; i < Math.ceil(enemyCount / 2); i++) {
+            const x = Phaser.Math.Between(400, 3600);
+            const y = Phaser.Math.Between(150, 450);
+            placements.push({
+                x: x,
+                y: y - 32, // Account for platform height
+                patrolMin: x - 100,
+                patrolMax: x + 100,
+                platform: 'platform'
+            });
+        }
+        
+        return placements;
+    }
+
+    getLevelName(level) {
+        const theme = GAME_CONSTANTS.LEVELS.THEMES[level];
+        return theme ? theme.name : `Advanced Level ${level}`;
+    }
+
     createUI() {
         // Clean HUD without persistent instruction text
         this.scoreText = this.add.text(16, 16, 'SATS: 0', {
@@ -2414,19 +3037,20 @@ class GameScene extends Phaser.Scene {
             strokeThickness: 2
         }).setScrollFactor(0);
         
-        // Level display
-        this.add.text(400, 16, `Level ${this.level}`, {
-            fontSize: '24px',
+        // Level display with themed names
+        const levelName = this.getLevelName(this.level);
+        this.add.text(400, 16, `Level ${this.level}: ${levelName}`, {
+            fontSize: '20px',
             fill: '#ffffff',
             fontFamily: 'Arial, sans-serif',
             stroke: '#000000',
             strokeThickness: 2
         }).setOrigin(0.5, 0).setScrollFactor(0);
         
-        // Progress indicator
-        this.add.text(400, 45, 'Reach the flag!', {
+        // Progress indicator - UPDATED VERSION
+        this.add.text(400, 45, 'Walk to GOAL! (v3.2-FIXED)', {
             fontSize: '16px',
-            fill: '#00ff00',
+            fill: '#ffff00',
             fontFamily: 'Arial, sans-serif',
             stroke: '#000000',
             strokeThickness: 1
@@ -2508,27 +3132,40 @@ class GameScene extends Phaser.Scene {
     setupCollisions() {
         try {
             // Player collisions
-            this.physics.add.collider(this.player, this.platforms);
-            this.physics.add.collider(this.bitcoins, this.platforms);
-            this.physics.add.collider(this.enemies, this.platforms);
-            
-            // Collectibles and interactions
-            this.physics.add.overlap(this.player, this.bitcoins, this.collectBitcoin, null, this);
-            this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, null, this);
-            this.physics.add.overlap(this.player, this.goalFlag, this.reachGoal, null, this);
-            
-            // Power-up collision detection - Phase 3.2
-            this.physics.add.overlap(this.player, this.powerUps, this.collectPowerUp, null, this);
-        } catch (error) {
-            console.error('Error setting up collisions:', error);
-            console.error('Attempting to restart scene...');
-            // Graceful fallback - restart the current scene
-            try {
-                this.scene.restart();
-            } catch (restartError) {
-                console.error('Scene restart failed, returning to title:', restartError);
-                this.scene.start('TitleScene');
-            }
+                            this.physics.add.collider(this.player, this.platforms);
+                this.physics.add.collider(this.bitcoins, this.platforms);
+                this.physics.add.collider(this.enemies, this.platforms);
+                
+                // Collectibles and interactions
+                this.physics.add.overlap(this.player, this.bitcoins, this.collectBitcoin, null, this);
+                this.physics.add.overlap(this.player, this.enemies, this.hitEnemy, null, this);
+                this.physics.add.overlap(this.player, this.goalFlag, this.reachGoal, null, this);
+                
+                // Backup goal zone collision
+                if (this.goalZone) {
+                    this.physics.add.overlap(this.player, this.goalZone, this.reachGoal, null, this);
+                    console.log('⚡ Goal zone collision added as backup');
+                }
+                
+                console.log('⚡ Collisions set up - Goal flag collision added for level', this.level);
+                
+                // Power-up collision detection - Phase 3.2
+                this.physics.add.overlap(this.player, this.powerUps, this.collectPowerUp, null, this);
+            } catch (error) {
+                console.error('Error setting up collisions:', error);
+                console.error('Attempting to restart scene...');
+                // Graceful fallback - restart the current scene
+                try {
+                    this.scene.restart();
+                } catch (restartError) {
+                    console.error('Scene restart failed, returning to title:', restartError);
+                    try {
+                        this.scene.start('TitleScene');
+                    } catch (titleError) {
+                        console.error('Failed to return to title screen:', titleError);
+                        window.location.reload();
+                    }
+                }
         }
     }
 
@@ -2968,7 +3605,24 @@ class GameScene extends Phaser.Scene {
     }
 
     reachGoal(player, flag) {
+        // Prevent multiple triggers
+        if (this.levelCompleting) {
+            return;
+        }
+        this.levelCompleting = true;
+        
         try {
+            console.log('🎯 GOAL REACHED! Level:', this.level, 'Next level:', this.level + 1);
+            
+            // Immediate visual feedback
+            this.add.text(player.x, player.y - 50, 'LEVEL COMPLETE!', {
+                fontSize: '24px',
+                fill: '#00ff00',
+                fontFamily: 'Arial, sans-serif',
+                stroke: '#000000',
+                strokeThickness: 2
+            }).setOrigin(0.5);
+            
             // Victory sound effect - Phase 3.1
             this.soundManager.playVictorySound();
             
@@ -2989,23 +3643,26 @@ class GameScene extends Phaser.Scene {
             this.level++;
             window.gameState.level = this.level;
             
-            if (this.level > 3) {
-                try {
-                    this.scene.start('VictoryScene');
-                } catch (victoryError) {
-                    console.error('Error starting VictoryScene:', victoryError);
-                    console.error('Falling back to title screen...');
-                    this.scene.start('TitleScene');
+            // Add a delay before transitioning to next level
+            this.time.delayedCall(1500, () => {
+                if (this.level > 6) {
+                    try {
+                        this.scene.start('VictoryScene');
+                    } catch (victoryError) {
+                        console.error('Error starting VictoryScene:', victoryError);
+                        console.error('Falling back to title screen...');
+                        this.scene.start('TitleScene');
+                    }
+                } else {
+                    try {
+                        this.scene.restart();
+                    } catch (restartError) {
+                        console.error('Error restarting scene:', restartError);
+                        console.error('Falling back to title screen...');
+                        this.scene.start('TitleScene');
+                    }
                 }
-            } else {
-                try {
-                    this.scene.restart();
-                } catch (restartError) {
-                    console.error('Error restarting scene:', restartError);
-                    console.error('Falling back to title screen...');
-                    this.scene.start('TitleScene');
-                }
-            }
+            });
         } catch (error) {
             console.error('Critical error in reachGoal:', error);
             console.error('Returning to title screen...');
@@ -3079,6 +3736,11 @@ class GameScene extends Phaser.Scene {
     }
 
     update() {
+        // Debug: Confirm update loop is running
+        if (Math.random() < 0.001) { // Only log occasionally to avoid spam
+            console.log('🔄 Update loop running, player X:', Math.round(this.player?.x || 0));
+        }
+        
         // Performance monitoring
         this.performanceMonitor.frameCount++;
         if (this.time.now - this.performanceMonitor.lastCheck > 1000) {
@@ -3289,6 +3951,35 @@ class GameScene extends Phaser.Scene {
         
         // Update parallax background scrolling
         this.updateParallaxBackground();
+        
+        // UNIVERSAL GOAL DETECTION - Works for ALL levels
+        if (this.player && !this.levelCompleting) {
+            // Fixed goal position for all levels
+            const goalX = 3850;
+            const goalY = 500;
+            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, goalX, goalY);
+            
+            // Aggressive goal detection - larger trigger area
+            if (this.player.x > 3700) { // Player is in the goal area
+                // Log every 30 frames (twice per second) for better debugging
+                if (!this.debugFrameCounter) this.debugFrameCounter = 0;
+                this.debugFrameCounter++;
+                
+                if (this.debugFrameCounter % 30 === 0) {
+                    console.log(`🎯 LEVEL ${this.level} GOAL CHECK:`);
+                    console.log(`   Player: X=${Math.round(this.player.x)}, Y=${Math.round(this.player.y)}`);
+                    console.log(`   Distance: ${Math.round(distance)} pixels`);
+                    console.log(`   levelCompleting: ${this.levelCompleting}`);
+                    console.log(`   Will trigger: ${distance < 120 ? 'YES' : 'NO'}`);
+                }
+            }
+            
+            // Increased trigger range to 120 pixels for more reliable detection
+            if (distance < 120) {
+                console.log(`🚀 GOAL TRIGGERED! Level ${this.level}, Distance: ${Math.round(distance)}`);
+                this.reachGoal(this.player, this.goalFlag);
+            }
+        }
     }
 
     // Simple, robust enemy movement - No conflicts
@@ -3535,7 +4226,17 @@ class GameOverScene extends Phaser.Scene {
         });
         
         mainMenuBtn.on('pointerdown', () => {
-            this.returnToMenu();
+            try {
+                this.returnToMenu();
+            } catch (error) {
+                console.error('Error returning to menu:', error);
+                try {
+                    this.scene.start('TitleScene');
+                } catch (fallbackError) {
+                    console.error('Fallback failed:', fallbackError);
+                    window.location.reload();
+                }
+            }
         });
     }
 
@@ -3551,7 +4252,12 @@ class GameOverScene extends Phaser.Scene {
                 } catch (restartError) {
                     console.error('Error restarting game:', restartError);
                     console.error('Falling back to title screen...');
-                    this.scene.start('TitleScene');
+                    try {
+                        this.scene.start('TitleScene');
+                    } catch (titleError) {
+                        console.error('Failed to return to title screen:', titleError);
+                        window.location.reload();
+                    }
                 }
             });
         } catch (error) {
@@ -3626,15 +4332,27 @@ class VictoryScene extends Phaser.Scene {
         }).setOrigin(0.5);
         
         // Celebration text
-        this.add.text(400, 220, 'You have mastered Bitcoin Adventure!', {
-            fontSize: '20px',
+        this.add.text(400, 200, 'You have conquered all 6 worlds!', {
+            fontSize: '22px',
             fill: '#ffffff',
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
         
-        this.add.text(400, 250, `Final Score: ${window.gameState.score}`, {
-            fontSize: '24px',
+        this.add.text(400, 230, 'From Mining Mountains to Blockchain Boulevard', {
+            fontSize: '16px',
+            fill: '#cccccc',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
+        
+        this.add.text(400, 260, 'You are now a Bitcoin Master!', {
+            fontSize: '20px',
             fill: '#f7931a',
+            fontFamily: 'Arial, sans-serif'
+        }).setOrigin(0.5);
+        
+        this.add.text(400, 290, `Final Score: ${window.gameState.score}`, {
+            fontSize: '24px',
+            fill: '#00ff00',
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
         
@@ -3817,8 +4535,14 @@ class HighScoresScene extends Phaser.Scene {
         });
         
         backBtn.on('pointerdown', () => {
-            this.soundManager.playUIClickSound();
-            this.scene.start('TitleScene');
+            try {
+                this.soundManager.playUIClickSound();
+                this.scene.start('TitleScene');
+            } catch (error) {
+                console.error('Error returning to title from high scores:', error);
+                console.error('Attempting page reload...');
+                window.location.reload();
+            }
         });
     }
 }
