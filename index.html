@@ -87,8 +87,8 @@
                 <ul>
                     <li>Collect as many Bitcoin (₿) as possible</li>
                     <li>Avoid central bank enemies</li>
-                    <li>Reach the goal flag to complete levels</li>
-                    <li>Survive and achieve the highest score!</li>
+                    <li>Reach the goal flag to complete the level</li>
+                    <li>Achieve the highest score!</li>
                 </ul>
             </div>
             <button id="close-instructions" class="btn-close">Got it!</button>
@@ -103,7 +103,7 @@
 
     <!-- Include Phaser -->
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
-    
+
     <!-- Game Loading and UI Management -->
     <script>
         // Enhanced loading screen controller for standalone web hosting
@@ -114,8 +114,8 @@
                 "Tip: Avoid the central bank enemies!",
                 "Tip: Press P to pause the game anytime!",
                 "Tip: Try fullscreen mode for the best experience!",
-                "Tip: Each level gets progressively harder!",
-                "Tip: Look for secret areas and bonus coins!"
+                "Tip: Look for power-ups to gain special abilities!",
+                "Tip: Try to collect all coins for a bonus!"
             ],
             currentTip: 0,
             
@@ -292,7 +292,7 @@
         });
     </script>
     
-    <!-- Include the main game script -->
-    <script src="scripts/game.js?t=1754725558"></script>
+    <!-- Bootstrapped entry for module-based game code -->
+    <script type="module" src="scripts/main.js"></script>
 </body>
 </html> 

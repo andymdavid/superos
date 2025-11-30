@@ -5,7 +5,7 @@ class SpriteTestScene extends Phaser.Scene {
 
     preload() {
         // Load both sprites for comparison
-        this.load.spritesheet('female_player', 'assets/images/SydSprite.png', {
+        this.load.spritesheet('female_player', 'assets/images/PeteSprite.png', {
             frameWidth: 32,
             frameHeight: 32
         });
