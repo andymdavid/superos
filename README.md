@@ -1,268 +1,105 @@
-# Bitcoin Adventure 🎮₿
+# Satoshi's Garden 🎮₿
 
-A fun 2D platformer game celebrating Bitcoin and financial freedom! Collect Bitcoin while avoiding central banking obstacles in this retro-style web game.
+A browser-based 2D platformer built with Phaser 3 where you dash through a single, handcrafted level, collect sats, dodge central bankers, and race to the garden's goal flag.
 
-![Bitcoin Adventure](assets/images/background.png)
+![Satoshi's Garden](assets/images/background.png)
 
-## 🎯 Game Features
+## What You Get Right Now
+- **One level**: A 4,000px wide course split into six themed sections with floating platforms, pitfalls, and hostile bankers (`scripts/data/levelLayouts.js`).
+- **Two playable characters**: Andy and Pete have their own idle/walk animations and can be swapped from the title screen.
+- **Score + lives HUD**: Earn 10 points per bitcoin, +25 for power-up pickups, and a 100 point bonus for clearing every coin in a run (tracked as `SATS` in `GameScene`).
+- **Double jump power-up**: Occasionally spawns from collected coins, lasts 10 seconds, and displays a countdown badge.
+- **Local highscores & achievements**: `HighScoreManager` stores the top 10 runs, play stats, and unlocks entirely in `localStorage` (`bitcoinAdventureData`).
+- **Mobile-ready UI**: When a touch device is detected the game spawns left/right/jump overlays and uses haptic feedback on hits and pickups.
+- **Persistent audio state**: `SoundManager` generates SFX with the Web Audio API and streams `assets/music/CryptoQuest.mp3`, keeping music playing across scenes with toggle controls.
+- **Scene set**: Title, Game, Game Over, Victory (with redirect), and High Scores screens are all wired up and switched through `scripts/main.js`.
 
-- **Engaging Platformer Gameplay**: Classic 2D platforming with modern web technology
-- **Bitcoin Theme**: Collect Bitcoin coins and avoid central bank enemies
-- **Responsive Design**: Works perfectly on desktop, tablet, and mobile devices
-- **Fullscreen Support**: Immersive gaming experience with F11 or fullscreen button
-- **Progressive Levels**: Multiple levels with increasing difficulty
-- **High Score System**: Track your best performances locally
-- **Smooth Animations**: Fluid character movements and particle effects
-- **Keyboard & Touch Controls**: Full support for both input methods
+## Controls & UI
+### Keyboard
+- `←` / `→` or `A` / `D`: move
+- `Space` or `↑`: jump (tap twice while a power-up is active for a double jump)
+- `P`: pause/resume the current scene
+- `F`: toggle fullscreen (also works from DOM overlay when the canvas has focus)
+- `Esc`: dismiss overlays and exit the Victory countdown back to the title screen
 
-## 🎮 How to Play
+### Touch & On-Screen Buttons
+- Touch controls (left, right, jump) appear automatically on phones/tablets.
+- The `⛶` floating button toggles fullscreen for the canvas.
+- The `?` floating button reveals the DOM-based instructions panel defined in `index.html`/`styles/main.css`.
 
-### Controls
-- **Arrow Keys** or **WASD**: Move left/right
-- **Spacebar** or **Up Arrow**: Jump
-- **P**: Pause game
-- **F**: Toggle fullscreen
-- **?**: Show help panel
+## Gameplay & Scoring
+- Start every run with **3 lives**; colliding with an enemy subtracts one life and respawns the player at the entrance. Zero lives routes to the Game Over scene.
+- Collecting a bitcoin is worth **10 points** and increments the session's SAT counter (`gameState.currentGameBitcoins`).
+- Picking up a power-up grants **25 points** and either a double-jump window (current implementation) or a future life-up.
+- Clear every bitcoin in the level to receive a **100-point collection bonus**.
+- Finish the level without dying to flag the run as *perfect*, which unlocks specific achievements in the High Scores scene.
 
-### Objectives
-- Collect as many Bitcoin (₿) as possible
-- Avoid central bank enemies (they reduce your lives!)
-- Reach the goal flag to complete each level
-- Survive all levels to achieve victory!
+## Scene Flow
+- **Title Scene** (`scripts/scenes/TitleScene.js`): Loading screen fades into Satoshi's Garden branding, character cards, fullscreen + music toggles, and buttons for starting the run or reviewing highscores.
+- **Game Scene** (`scripts/scenes/GameScene.js`): Builds static/floating platforms, coins, banker patrols, power-up drops, HUD elements, parallax background, sprite pooling for score text, and particle flourishes. Pacing is tuned through constants in `scripts/core/constants.js`.
+- **Game Over Scene**: Shows score, coins collected, survival time, new achievements, and offers Play Again/Main Menu.
+- **Victory Scene**: Displays end-of-run stats, highlights leaderboard rank + achievements, then automatically redirects to `https://otherstuff.ai` after 7 seconds (Esc cancels).
+- **High Scores Scene**: Reads from `HighScoreManager` to show the leaderboard, aggregate stats (games/jumps/double jumps/power-ups/best time), and the latest unlocked achievements.
 
-### Scoring
-- **Bitcoin Collection**: +100 points per coin
-- **Level Completion**: +500 bonus points
-- **Enemy Avoidance**: Keep your 3 lives intact for maximum score
+## Technology Stack
+- [Phaser 3.70.0](https://phaser.io/) (CDN-loaded) for rendering, physics, camera, and scenes
+- Modern HTML5 + CSS3 for loading/instructions overlays (`index.html`, `styles/main.css`)
+- Vanilla ES modules (`scripts/main.js` bootstraps everything) with no bundler required
+- Web Audio API based `SoundManager` for sound effects/background music
+- `localStorage` for persistent highscores, statistics, and achievements
 
-## 🚀 Quick Start
+## Run It Locally
+1. Clone or download the repository.
+2. Because `scripts/main.js` uses ES module imports, serve the folder over HTTP (e.g. `python3 -m http.server 8080`).
+3. Open `http://localhost:8080/index.html` in a modern desktop or mobile browser.
+4. Click **START GAME** on the title screen to begin a run. The High Scores screen is available from the footer button on the same menu.
 
-### Option 1: Direct Play
-1. Download or clone this repository
-2. Open `index.html` in any modern web browser
-3. Start playing immediately!
+No additional build, transpile, or dependency steps are required.
 
-### Option 2: Web Server Hosting
-1. Upload all files to your web hosting service
-2. Ensure the folder structure is maintained:
-   ```
-   your-domain.com/
-   ├── index.html
-   ├── styles/
-   │   └── main.css
-   ├── scripts/
-   │   └── game_clean.js
-   └── assets/
-       └── images/
-           ├── background.png
-           ├── AndySprite.png
-           ├── BTC.png
-           └── Yellen.png
-   ```
-3. Navigate to your domain and enjoy!
-
-## 📱 Mobile Support
-
-Bitcoin Adventure is fully optimized for mobile devices:
-
-- **Touch Controls**: Tap and swipe gestures
-- **Responsive Layout**: Adapts to any screen size
-- **Performance Optimized**: Smooth 60fps gameplay on mobile
-- **Portrait & Landscape**: Works in both orientations
-
-## ⚡ Technical Specifications
-
-### Browser Requirements
-- **Modern Web Browser** with HTML5 support
-- **JavaScript Enabled**
-- **Canvas Support**
-- **Audio Support** (optional)
-
-### Performance
-- **Target FPS**: 60fps
-- **Minimum FPS**: 30fps (with automatic optimization)
-- **Memory Usage**: <50MB typical
-- **Loading Time**: <5 seconds on broadband
-
-### Technologies Used
-- **Phaser.js 3.70.0**: Game engine
-- **HTML5 Canvas**: Rendering
-- **Web Audio API**: Sound effects
-- **Local Storage**: High score persistence
-- **CSS3**: Responsive styling
-
-## 🎨 Assets & Graphics
-
-All game assets are included:
-
-- **Character Sprites**: Custom pixel art animations
-- **Background**: Detailed parallax scrolling background
-- **Bitcoin Graphics**: Animated spinning coins
-- **Enemy Sprites**: Central bank themed characters
-- **UI Elements**: Clean, modern interface
-
-## 🔧 Customization
-
-### Modifying Game Settings
-Edit `scripts/game_clean.js` to customize:
-
-```javascript
-// Game configuration
-const config = {
-    width: 800,        // Game width
-    height: 600,       // Game height
-    // ... other settings
-};
-
-// Game state
-window.gameState = {
-    lives: 3,          // Starting lives
-    level: 1,          // Starting level
-    // ... other state
-};
+## Project Structure
+```
+assets/                Static art and music (sprites, background, BTC coin, soundtrack)
+scripts/
+  core/               Constants, shared game state, sound + high score managers
+  data/               Level layouts (platforms, coins, enemies, power-ups)
+  entities/           Supporting classes (SpritePool, PowerUp)
+  scenes/             Phaser scenes (Title, Game, GameOver, Victory, HighScores)
+  game.js             Phaser configuration + global helpers
+game.js
+styles/main.css       Loading screen, fullscreen/help buttons, DOM instructions UI
+index.html            Bootstraps Phaser, loading UI, and fullscreen/help controls
 ```
 
-### Adding Levels
-Extend the `createLevel()` function in `GameScene`:
+## Customize the Game
+- **Gameplay tuning**: Update `scripts/core/constants.js` to tweak physics, jump force, scoring values, HUD text, or redirect targets.
+- **Level content**: `scripts/data/levelLayouts.js` defines platform, coin, enemy, gap, and power-up positions for each level ID. Level 1 (Satoshi's Garden) is currently the only active level.
+- **Scene logic**: Extend `scripts/scenes/GameScene.js` for new mechanics (additional power-up types, hazards, checkpoints) or add new scenes via `config.scene` in `scripts/main.js`.
+- **UI/overlays**: Adjust the DOM-based loading screen, fullscreen/help buttons, or instructions panel in `index.html` and `styles/main.css`.
+- **Assets & audio**: Replace or add sprites/music under `assets/` and update the loaders in `TitleScene.preload()`.
 
-```javascript
-createLevel() {
-    // Add more platforms
-    this.platforms.create(x, y, 'platform');
-    
-    // Add more bitcoins
-    this.bitcoins.create(x, y, 'bitcoin');
-    
-    // Add more enemies
-    this.enemies.create(x, y, 'enemy');
-}
-```
+## Persistence & Save Data
+`HighScoreManager` serializes data to `localStorage` under the `bitcoinAdventureData` key. It tracks:
+- Top 10 high scores with completion time, sats collected, and lives remaining
+- Aggregate stats (games played, coins collected, jumps, double jumps, power-ups)
+- Achievement unlocks such as *First Victory*, score milestones, and collection milestones
 
-### Styling
-Modify `styles/main.css` to customize appearance:
+Delete that key in DevTools if you need a clean slate for testing.
 
-```css
-/* Change game container styling */
-.game-container {
-    border-radius: 15px;
-    box-shadow: 0 0 50px rgba(247, 147, 26, 0.3);
-}
+## Performance & Mobile Notes
+- Phaser's FIT scaling keeps the canvas within 800×600 while supporting up to 2× resolution for fullscreen/hi-dpi displays.
+- Lightweight FPS monitoring (every 10 seconds) warns in the console when the loop dips below 30 FPS.
+- Object pooling (`SpritePool`) powers floating score text, and particles/power-ups are cleaned up aggressively to avoid leaks.
+- Touch detection, mobile-friendly hit areas, and optional haptic feedback (`navigator.vibrate`) keep the game responsive on phones/tablets.
 
-/* Customize loading screen */
-.loading-screen {
-    background: your-custom-gradient;
-}
-```
+## Hosting Tips
+- Any static host works (GitHub Pages, Netlify, S3, etc.). Keep the folder structure intact so Phaser can load assets.
+- Enable gzip/HTTP compression on production hosts for faster texture/audio transfer.
+- Serve over HTTPS if you want fullscreen and vibration APIs to behave consistently on mobile.
 
-## 🌐 Hosting Recommendations
+## License
+This project is open source under the MIT License.
 
-### Shared Hosting
-- Works with any basic web hosting
-- Upload files via FTP/SFTP
-- Ensure proper MIME types for .js files
-
-### CDN & Performance
-- Consider using a CDN for the assets folder
-- Enable gzip compression for faster loading
-- Optimize images for web if needed
-
-### HTTPS
-- Recommended for fullscreen API support
-- Required for some mobile features
-- Free SSL certificates available from Let's Encrypt
-
-## 🛠️ Development
-
-### Local Development
-1. Clone the repository
-2. Use a local web server (Python, Node.js, or similar)
-3. Navigate to `http://localhost:PORT`
-
-### Building for Production
-The game is already production-ready! No build process required.
-
-### Adding Features
-1. Fork the repository
-2. Make your changes to the appropriate files
-3. Test thoroughly across different devices
-4. Submit a pull request
-
-## 📊 Performance Optimization
-
-### Already Implemented
-- **Object Pooling**: Efficient memory management
-- **Sprite Batching**: Optimized rendering
-- **Asset Preloading**: Faster startup times
-- **FPS Monitoring**: Automatic performance tracking
-- **Responsive Scaling**: Adaptive quality settings
-
-### Manual Optimization
-- Use a fast, reliable hosting service
-- Enable server-side compression (gzip)
-- Optimize images if loading is slow
-- Use a CDN for global distribution
-
-## 🔒 Security Features
-
-- **Input Validation**: All user inputs are sanitized
-- **CSP Headers**: Content Security Policy protection
-- **XSS Protection**: Cross-site scripting prevention
-- **Safe Asset Loading**: Graceful fallbacks for missing assets
-
-## 🎯 Game Design
-
-### Core Mechanics
-- **Physics-Based Movement**: Realistic jumping and gravity
-- **Collision Detection**: Precise hit detection
-- **Progressive Difficulty**: Each level introduces new challenges
-- **Score System**: Encourages exploration and skill improvement
-
-### Visual Design
-- **Retro Pixel Art**: Nostalgic 16-bit aesthetic
-- **Bitcoin Orange**: Consistent color theming (#f7931a)
-- **Smooth Animations**: 60fps character and object animations
-- **Particle Effects**: Visual feedback for actions
-
-## 📞 Support & Issues
-
-### Common Issues
-
-**Game won't load?**
-- Check browser console for errors
-- Ensure all files are uploaded correctly
-- Verify web server configuration
-
-**Poor performance?**
-- Close other browser tabs
-- Check system resources
-- Try a different browser
-
-**Controls not working?**
-- Click on the game area to focus
-- Check if JavaScript is enabled
-- Try refreshing the page
-
-### Getting Help
-1. Check browser console for error messages
-2. Verify all game files are present
-3. Test on a different device/browser
-4. Check hosting service status
-
-## 📝 License
-
-This project is open source and available under the MIT License.
-
-## 🎉 Credits
-
-- **Game Engine**: Phaser.js Community
-- **Concept**: Bitcoin and cryptocurrency education
-- **Development**: Built with modern web technologies
-- **Inspiration**: Classic platformer games and financial freedom
-
----
-
-**Ready to start your Bitcoin Adventure?** 
-
-Just open `index.html` and begin collecting those coins! 🚀₿
-
-*Remember: This is for educational and entertainment purposes only. Always do your own research when it comes to cryptocurrency investments.* 
+## Credits
+- Design & development: SuperOS team
+- Engine: Phaser.js community
+- Concept inspiration: Bitcoin education meets classic platformers
