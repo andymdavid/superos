@@ -61,11 +61,11 @@ export class GameScene extends Phaser.Scene {
     init() {
         const storedScore = typeof gameState.score === 'number' ? gameState.score : 0;
         const storedLives = typeof gameState.lives === 'number' ? gameState.lives : GAME_CONSTANTS.GAMEPLAY.INITIAL_LIVES;
-        const storedLevel = typeof gameState.level === 'number' ? gameState.level : 1;
 
+        // Single-level game - always Level 1
         this.score = storedScore;
         this.lives = storedLives;
-        this.level = storedLevel;
+        this.level = 1;
         this.runSummarySubmitted = false;
         this.lastRunSummary = null;
 
@@ -79,7 +79,7 @@ export class GameScene extends Phaser.Scene {
 
         gameState.score = this.score;
         gameState.lives = this.lives;
-        gameState.level = this.level;
+        gameState.level = 1; // Always Level 1 for single-level game
 
         // Detect mobile device
         this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
@@ -562,6 +562,11 @@ export class GameScene extends Phaser.Scene {
                 fill: '#ff0000'
             }).setScrollFactor(1);
             line.setScrollFactor(1);
+
+            // Hide debug markers unless enabled
+            line.setVisible(GAME_CONSTANTS.DEBUG.SHOW_ZONE_MARKERS);
+            label.setVisible(GAME_CONSTANTS.DEBUG.SHOW_ZONE_MARKERS);
+
             this.time.delayedCall(1, () => {
                 line.setDepth(9999);
                 label.setDepth(10000);
@@ -578,6 +583,10 @@ export class GameScene extends Phaser.Scene {
             fontFamily: 'monospace',
             color: '#ff0000'
         }).setOrigin(0.5, 1).setScrollFactor(1).setDepth(10000);
+
+        // Hide debug labels unless enabled
+        label.setVisible(GAME_CONSTANTS.DEBUG.SHOW_PLATFORM_LABELS);
+
         this.platformLabels.push(label);
     }
 
@@ -630,8 +639,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     getLevelName(level) {
-        const theme = GAME_CONSTANTS.LEVELS.THEMES[level];
-        return theme ? theme.name : `Advanced Level ${level}`;
+        // Single-level game - always return the same name
+        return GAME_CONSTANTS.LEVELS.THEMES[1].name;
     }
 
     createUI() {
@@ -1252,7 +1261,7 @@ export class GameScene extends Phaser.Scene {
             console.log('🎯 GOAL REACHED! Level:', this.level, 'Next level:', this.level + 1);
             
             // Immediate visual feedback
-            this.add.text(player.x, player.y - 50, 'LEVEL COMPLETE!', {
+            this.add.text(player.x, player.y - 50, 'GARDEN COMPLETE!', {
                 fontSize: '24px',
                 fill: '#00ff00',
                 fontFamily: 'Arial, sans-serif',
@@ -1388,9 +1397,7 @@ export class GameScene extends Phaser.Scene {
             ? gameState.currentGameBitcoins
             : 0;
         const livesRemaining = Math.max(this.lives, 0);
-        const finalLevel = finalLevelOverride !== null
-            ? finalLevelOverride
-            : Math.max(1, Math.min(this.level, GAME_CONSTANTS.LEVELS.TOTAL_LEVELS));
+        const finalLevel = 1; // Single-level game - always Level 1
 
         let highScoreResult = null;
         try {

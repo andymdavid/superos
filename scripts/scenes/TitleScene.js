@@ -546,7 +546,7 @@ export class TitleScene extends Phaser.Scene {
             console.log('Created new sound manager');
             
             // Load and start background music (only on first creation)
-            this.soundManager.loadBackgroundMusic('assets/music/Crypto Quest.mp3').then(() => {
+            this.soundManager.loadBackgroundMusic('assets/music/CryptoQuest.mp3').then(() => {
                 console.log('🎵 Background music loaded successfully, will start after user interaction');
                 // Start music after a short delay to allow for user interaction
                 this.time.delayedCall(1000, () => {

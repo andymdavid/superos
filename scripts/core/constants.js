@@ -1,5 +1,11 @@
 // Shared game constants for Bitcoin Adventure
 export const GAME_CONSTANTS = {
+    // Debug settings
+    DEBUG: {
+        SHOW_ZONE_MARKERS: false, // Set to true to show debug zone markers
+        SHOW_PLATFORM_LABELS: false // Set to true to show platform debug labels
+    },
+
     // World dimensions
     WORLD: {
         WIDTH: 4000,
@@ -91,16 +97,11 @@ export const GAME_CONSTANTS = {
         BOUNCE: 0.3
     },
 
-    // Level progression settings
+    // Single-level game settings
     LEVELS: {
-        TOTAL_LEVELS: 1,
-        DIFFICULTY_SCALING: {
-            ENEMY_SPEED_MULTIPLIER: 1.1,
-            BITCOIN_BONUS_MULTIPLIER: 1.2,
-            POWERUP_SPAWN_REDUCTION: 0.9
-        },
+        TOTAL_LEVELS: 1, // Single-level game
         THEMES: {
-            1: { name: 'Bitcoin Adventure', color: 0xf7931a }
+            1: { name: "Satoshi's Garden", color: 0xf7931a }
         },
         REDIRECT_URL: 'https://otherstuff.ai',
         REDIRECT_DELAY: 7000 // 7 seconds to view stats before redirect

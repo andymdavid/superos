@@ -29,7 +29,7 @@ export class VictoryScene extends Phaser.Scene {
         bg.setTint(0x004400);
 
         // Victory title
-        const victoryText = this.add.text(400, 100, 'LEVEL COMPLETE!', {
+        const victoryText = this.add.text(400, 100, 'GARDEN COMPLETE!', {
             fontSize: '48px',
             fill: '#00ff00',
             fontFamily: 'Arial, sans-serif',
@@ -44,7 +44,7 @@ export class VictoryScene extends Phaser.Scene {
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
 
-        this.add.text(400, 190, 'You successfully navigated Satoshi\'s Garden', {
+        this.add.text(400, 190, "You've mastered Satoshi's Garden!", {
             fontSize: '16px',
             fill: '#cccccc',
             fontFamily: 'Arial, sans-serif'
