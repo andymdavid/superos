@@ -5,7 +5,7 @@ class SpriteTestScene extends Phaser.Scene {
 
     preload() {
         // Load both sprites for comparison
-        this.load.spritesheet('female_player', 'assets/images/PeteSprite.png', {
+        this.load.spritesheet('player2', 'assets/images/PeteSprite.png', {
             frameWidth: 32,
             frameHeight: 32
         });
@@ -15,8 +15,8 @@ class SpriteTestScene extends Phaser.Scene {
         });
 
         // Add load event listeners
-        this.load.on('filecomplete-spritesheet-female_player', (key, type, data) => {
-            console.log('✅ Female player loaded:', {
+        this.load.on('filecomplete-spritesheet-player2', (key, type, data) => {
+            console.log('✅ Player 2 sprite loaded:', {
                 key: key,
                 type: type,
                 frameWidth: data.frameWidth,
@@ -38,16 +38,16 @@ class SpriteTestScene extends Phaser.Scene {
             this.add.line(0, 0, 0, y, 800, y, 0x666666);
         }
 
-        // Display female sprite frames
-        if (this.textures.exists('female_player')) {
-            console.log('🎨 Creating female sprite test display');
+        // Display Player 2 sprite frames
+        if (this.textures.exists('player2')) {
+            console.log('🎨 Creating Player 2 sprite test display');
             
             // Display each frame
             for (let i = 0; i < 8; i++) {
                 const x = 100 + (i % 4) * 100;
                 const y = 100 + Math.floor(i / 4) * 100;
                 
-                const sprite = this.add.sprite(x, y, 'female_player', i);
+                const sprite = this.add.sprite(x, y, 'player2', i);
                 sprite.setScale(2);
                 
                 // Add frame number text
@@ -57,15 +57,15 @@ class SpriteTestScene extends Phaser.Scene {
                 }).setOrigin(0.5);
             }
         } else {
-            console.error('❌ Female player texture not loaded');
+            console.error('❌ Player 2 texture not loaded');
         }
 
         // Add debug info
         const debugText = [
             'Sprite Test Scene',
             '----------------',
-            `Female player texture exists: ${this.textures.exists('female_player')}`,
-            `Frame count: ${this.textures.get('female_player').frameTotal}`,
+            `Player 2 texture exists: ${this.textures.exists('player2')}`,
+            `Frame count: ${this.textures.get('player2').frameTotal}`,
             'Press SPACE to animate test sprite'
         ].join('\n');
 
@@ -76,13 +76,13 @@ class SpriteTestScene extends Phaser.Scene {
         }).setOrigin(0.5);
 
         // Add animated test sprite
-        const testSprite = this.add.sprite(600, 300, 'female_player', 0);
+        const testSprite = this.add.sprite(600, 300, 'player2', 0);
         testSprite.setScale(3);
 
         // Create test animations
         this.anims.create({
             key: 'test_walk',
-            frames: this.anims.generateFrameNumbers('female_player', { start: 0, end: 7 }),
+            frames: this.anims.generateFrameNumbers('player2', { start: 0, end: 7 }),
             frameRate: 8,
             repeat: -1
         });

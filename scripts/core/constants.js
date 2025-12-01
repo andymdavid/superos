@@ -103,6 +103,6 @@ export const GAME_CONSTANTS = {
             1: { name: 'Bitcoin Adventure', color: 0xf7931a }
         },
         REDIRECT_URL: 'https://otherstuff.ai',
-        REDIRECT_DELAY: 5000 // 5 seconds to view stats before redirect
+        REDIRECT_DELAY: 7000 // 7 seconds to view stats before redirect
     }
 };

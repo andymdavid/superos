@@ -449,11 +449,11 @@ export class GameScene extends Phaser.Scene {
         let playerKey;
         
         console.log('🎮 Creating player with character:', selectedCharacter);
-        console.log('🖼️ Female player texture exists:', this.textures.exists('female_player'));
+        console.log('🖼️ Player 2 texture exists:', this.textures.exists('player2'));
         console.log('🖼️ Andy player texture exists:', this.textures.exists('player'));
         
-        if (selectedCharacter === 'female') {
-            playerKey = this.textures.exists('female_player') ? 'female_player' : 'female_player_fallback';
+        if (selectedCharacter === 'player2') {
+            playerKey = this.textures.exists('player2') ? 'player2' : 'player2_fallback';
         } else {
             playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
         }
@@ -468,9 +468,10 @@ export class GameScene extends Phaser.Scene {
         console.log('🎮 Player texture key:', this.player.texture.key);
         
         // Set appropriate scaling based on character
-        if (selectedCharacter === 'female') {
-            this.player.setScale(GAME_CONSTANTS.PLAYER.SCALE); // Use same scale as Andy
-            console.log('👩 Female character - using Andy scale:', GAME_CONSTANTS.PLAYER.SCALE);
+        if (selectedCharacter === 'player2') {
+            const player2Scale = GAME_CONSTANTS.PLAYER.SCALE * 1.10; // 10% larger than Andy
+            this.player.setScale(player2Scale);
+            console.log('🧍 Player 2 character - using 10% larger scale:', player2Scale);
         } else {
             this.player.setScale(GAME_CONSTANTS.PLAYER.SCALE);
             console.log('👨 Male character - set scale to', GAME_CONSTANTS.PLAYER.SCALE);
@@ -483,20 +484,12 @@ export class GameScene extends Phaser.Scene {
         this.player.setCollideWorldBounds(true);
         
         // Set appropriate hitbox based on character
-        if (selectedCharacter === 'female') {
+        if (selectedCharacter === 'player2') {
             this.player.body.setSize(200, 400, true); // Use same hitbox as Andy
-            
-            // Add event listener for animation changes to adjust offset
-            this.player.on('animationstart', (anim) => {
-                if (anim.key.includes('left')) {
-                    this.player.body.setOffset(0, -60); // Larger offset for left-facing animations
-                } else {
-                    this.player.body.setOffset(0, -40); // Normal offset for right-facing
-                }
-                console.log('🎬 Animation changed:', anim.key, 'Offset adjusted');
-            });
-            
-            console.log('📦 Female hitbox set with dynamic offset');
+            // Player 2 sprite has white space at the bottom
+            // Offset the collision body vertically to align with the character's actual position
+            this.player.body.setOffset(70, 42);
+            console.log('📦 Player 2 hitbox set to 200x400 with offset (70, 42) to compensate for white space');
         } else {
             this.player.body.setSize(200, 400, true); // Original Andy hitbox
             console.log('📦 Andy hitbox set to 200x400');
@@ -1237,10 +1230,24 @@ export class GameScene extends Phaser.Scene {
     reachGoal(player, flag) {
         // Prevent multiple triggers
         if (this.levelCompleting) {
+            console.log('⚠️ Goal already completing, ignoring duplicate trigger');
             return;
         }
+
+        console.log('🎯 Setting levelCompleting to true');
         this.levelCompleting = true;
-        
+
+        // Immediately stop player movement and physics to prevent further collisions
+        if (this.player && this.player.body) {
+            this.player.setVelocity(0, 0);
+            this.player.body.enable = false; // Disable physics body
+            console.log('🎯 Player physics disabled');
+        }
+
+        // Pause the update loop to prevent any further processing
+        this.physics.pause();
+        console.log('🎯 Physics paused');
+
         try {
             console.log('🎯 GOAL REACHED! Level:', this.level, 'Next level:', this.level + 1);
             
@@ -1458,10 +1465,10 @@ export class GameScene extends Phaser.Scene {
             this.playerFacingRight = false;
             
             // Use appropriate walk animation
-            if (selectedCharacter === 'female') {
-                this.player.play('female_walk_left', true);
+            if (selectedCharacter === 'player2') {
+                this.player.play('player2_walk_left', true);
                 this.player.setFlipX(false); // Don't flip, use left-facing frames
-                console.log('🎬 Playing female walk left animation');
+                console.log('🎬 Playing Player 2 walk left animation');
             } else {
                 this.player.play('player_walk', true);
                 this.player.setFlipX(true);
@@ -1471,8 +1478,8 @@ export class GameScene extends Phaser.Scene {
             this.playerFacingRight = true;
             
             // Use appropriate walk animation
-            if (selectedCharacter === 'female') {
-                this.player.play('female_walk_right', true);
+            if (selectedCharacter === 'player2') {
+                this.player.play('player2_walk_right', true);
                 this.player.setFlipX(false); // Don't flip, use right-facing frames
             } else {
                 this.player.play('player_walk', true);
@@ -1483,12 +1490,12 @@ export class GameScene extends Phaser.Scene {
             
                          // Use appropriate idle animation (only if not jumping)
              if (this.player.body.touching.down) {
-                 if (selectedCharacter === 'female') {
-                     console.log('🎬 Playing female_idle animation');
-                     this.player.play('female_idle', true);
-                 } else {
-                     this.player.play('player_idle', true);
-                 }
+                if (selectedCharacter === 'player2') {
+                    console.log('🎬 Playing Player 2 idle animation');
+                    this.player.play('player2_idle', true);
+                } else {
+                    this.player.play('player_idle', true);
+                }
              }
         }
         
@@ -1500,16 +1507,16 @@ export class GameScene extends Phaser.Scene {
                 this.canJump = false;
                 this.jumpTimer = this.time.now + 200; // Prevent double jumping for 200ms
                 
-                // Play jump animation for female character
-                if (selectedCharacter === 'female') {
+                // Play jump animation for Player 2 character
+                if (selectedCharacter === 'player2') {
                     // Use static jump frame if not moving, directional if moving
                     const isMoving = Math.abs(this.player.body.velocity.x) > 10;
                     if (isMoving) {
-                        const jumpAnim = this.playerFacingRight ? 'female_jump_right' : 'female_jump_left';
+                        const jumpAnim = this.playerFacingRight ? 'player2_jump_right' : 'player2_jump_left';
                         this.player.play(jumpAnim, true);
                         console.log('🎬 Playing directional jump:', jumpAnim);
                     } else {
-                        this.player.play('female_jump', true);
+                        this.player.play('player2_jump', true);
                         console.log('🎬 Playing static jump');
                     }
                 }
@@ -1559,9 +1566,9 @@ export class GameScene extends Phaser.Scene {
                 this.canJump = false;
                 this.jumpTimer = this.time.now + 200;
                 
-                // Play directional jump animation for female character (double jump)
-                if (selectedCharacter === 'female') {
-                    const jumpAnim = this.playerFacingRight ? 'female_jump_right' : 'female_jump_left';
+                // Play directional jump animation for Player 2 character (double jump)
+                if (selectedCharacter === 'player2') {
+                    const jumpAnim = this.playerFacingRight ? 'player2_jump_right' : 'player2_jump_left';
                     this.player.play(jumpAnim, true);
                 }
                 
@@ -1586,13 +1593,13 @@ export class GameScene extends Phaser.Scene {
             this.doubleJumpUsed = false; // Reset double jump when landing
             
             // Return to appropriate animation when landing
-            if (selectedCharacter === 'female') {
+            if (selectedCharacter === 'player2') {
                 if (Math.abs(this.player.body.velocity.x) > 10) {
                     // Use appropriate directional walk animation
-                    const walkAnim = this.playerFacingRight ? 'female_walk_right' : 'female_walk_left';
+                    const walkAnim = this.playerFacingRight ? 'player2_walk_right' : 'player2_walk_left';
                     this.player.play(walkAnim, true);
                 } else {
-                    this.player.play('female_idle', true);
+                    this.player.play('player2_idle', true);
                 }
             } else {
                 if (Math.abs(this.player.body.velocity.x) > 10) {

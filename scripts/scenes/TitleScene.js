@@ -21,9 +21,9 @@ export class TitleScene extends Phaser.Scene {
             this.load.on('loaderror', (file) => {
                 console.warn('❌ Asset failed to load:', file.key, 'URL:', file.url);
                 
-                // Special handling for female player sprite
-                if (file.key === 'female_player') {
-                    console.error('🚨 Female player sprite failed to load!');
+                // Special handling for Player 2 sprite
+                if (file.key === 'player2') {
+                    console.error('🚨 Player 2 sprite failed to load!');
                     console.error('🔍 Check if PeteSprite.png exists at:', file.url);
                 }
                 
@@ -75,15 +75,15 @@ export class TitleScene extends Phaser.Scene {
                     };
                     andyImg.src = 'assets/images/AndySprite.png';
 
-                    // Debug Pete sprite dimensions
+                    // Debug Player 2 sprite dimensions
                     const peteImg = new Image();
                     peteImg.onload = () => {
-                        console.log('🔍 Pete sprite actual dimensions:', {
+                        console.log('🔍 Player 2 sprite actual dimensions:', {
                             width: peteImg.width,
                             height: peteImg.height
                         });
                     };
-                    peteImg.src = 'assets/images/PeteSprite.png';
+                    peteImg.src = 'assets/images/PeteSprite.png?v=' + Date.now();
 
                     this.load.image('background', 'assets/images/background.png');
 
@@ -101,9 +101,10 @@ export class TitleScene extends Phaser.Scene {
                         frameHeight: 512
                     });
                     
-                                    // Load female character spritesheet
-                console.log('📥 Loading female player spritesheet from assets/images/PeteSprite.png');
-                this.load.spritesheet('female_player', 'assets/images/PeteSprite.png', {
+                    // Load Player 2 character spritesheet with cache busting
+                const cacheBuster = Date.now();
+                console.log('📥 Loading Player 2 spritesheet from assets/images/PeteSprite.png?v=' + cacheBuster);
+                this.load.spritesheet('player2', 'assets/images/PeteSprite.png?v=' + cacheBuster, {
                     frameWidth: 341,    // Match Andy's frame size
                     frameHeight: 532,   // Slightly taller to prevent cutoff
                     spacing: 0,
@@ -112,9 +113,9 @@ export class TitleScene extends Phaser.Scene {
                 
                 // Add load complete handler for debugging
                 this.load.on('complete', () => {
-                    if (this.textures.exists('female_player')) {
-                        const texture = this.textures.get('female_player');
-                        console.log('📥 Female player sprite loaded:', {
+                    if (this.textures.exists('player2')) {
+                        const texture = this.textures.get('player2');
+                        console.log('📥 Player 2 sprite loaded:', {
                             frameWidth: texture.source[0].width,
                             frameHeight: texture.source[0].height,
                             frameTotal: texture.frameTotal
@@ -137,10 +138,10 @@ export class TitleScene extends Phaser.Scene {
                     }
                 });
                 
-                // Add load event listener for female player
-                this.load.on('filecomplete-spritesheet-female_player', () => {
-                    console.log('✅ Female player spritesheet loaded successfully');
-                    console.log('📊 Female player texture info:', this.textures.get('female_player'));
+                // Add load event listener for Player 2
+                this.load.on('filecomplete-spritesheet-player2', () => {
+                    console.log('✅ Player 2 spritesheet loaded successfully');
+                    console.log('📊 Player 2 texture info:', this.textures.get('player2'));
                 });
                 this.load.spritesheet('enemy', 'assets/images/yellen.png', {
                     frameWidth: 32,
@@ -206,11 +207,11 @@ export class TitleScene extends Phaser.Scene {
                         frameHeight: 512
                     });
                     break;
-                case 'female_player':
-                    console.log('🔄 Retrying female player sprite:', originalUrl);
+                case 'player2':
+                    console.log('🔄 Retrying Player 2 sprite:', originalUrl);
                     this.load.spritesheet(assetKey, originalUrl, {
-                        frameWidth: 32,
-                        frameHeight: 48
+                        frameWidth: 341,
+                        frameHeight: 532
                     });
                     break;
                 case 'enemy':
@@ -297,15 +298,15 @@ export class TitleScene extends Phaser.Scene {
         graphics.fillRect(8, 8, 16, 8);
         graphics.generateTexture('player_fallback', 32, 48);
         
-        // Female player fallback
+        // Player 2 fallback
         graphics.clear();
-        graphics.fillStyle(0xff69b4); // Pink for female character
+        graphics.fillStyle(0x3a8ee6); // Accent color for Player 2
         graphics.fillRect(0, 0, 32, 48);
         graphics.fillStyle(0x000000);
         graphics.fillRect(8, 8, 16, 8);
         graphics.fillStyle(0xffffff);
         graphics.fillRect(10, 20, 12, 4); // Different distinguishing feature
-        graphics.generateTexture('female_player_fallback', 32, 48);
+        graphics.generateTexture('player2_fallback', 32, 48);
         
         // Bitcoin fallback
         graphics.clear();
@@ -353,98 +354,98 @@ export class TitleScene extends Phaser.Scene {
             repeat: -1
         });
 
-        // Female character animations with fallback support
-        const femalePlayerKey = this.textures.exists('female_player') ? 'female_player' : 'female_player_fallback';
+        // Player 2 character animations with fallback support
+        const player2Key = this.textures.exists('player2') ? 'player2' : 'player2_fallback';
         
-        console.log('🎬 Creating female character animations with key:', femalePlayerKey);
+        console.log('🎬 Creating Player 2 animations with key:', player2Key);
         
         this.anims.create({
-            key: 'female_idle',
-            frames: this.textures.exists('female_player') ? 
-                [{ key: 'female_player', frame: 0 }] :
-                [{ key: 'female_player_fallback', frame: 0 }],
-            frameRate: 1,
-            repeat: 0
+            key: 'player2_idle',
+            frames: this.textures.exists('player2') ?
+                this.anims.generateFrameNumbers('player2', { start: 0, end: 1 }) :
+                [{ key: 'player2_fallback', frame: 0 }],
+            frameRate: 4,
+            repeat: -1
         });
-        console.log('✅ Created female_idle animation');
+        console.log('✅ Created player2_idle animation (frames 0-1, looping)');
 
         // Right-facing animations (frames 1-2 from top row)
         this.anims.create({
-            key: 'female_walk_right',
-            frames: this.textures.exists('female_player') ? 
-                this.anims.generateFrameNumbers('female_player', { frames: [1, 2] }) :
-                [{ key: 'female_player_fallback', frame: 0 }],
+            key: 'player2_walk_right',
+            frames: this.textures.exists('player2') ? 
+                this.anims.generateFrameNumbers('player2', { frames: [1, 2] }) :
+                [{ key: 'player2_fallback', frame: 0 }],
             frameRate: 8,
             repeat: -1
         });
-        console.log('✅ Created female_walk_right animation');
+        console.log('✅ Created player2_walk_right animation');
 
         // Left-facing animations (frames 5-6 from bottom row)
         try {
             this.anims.create({
-                key: 'female_walk_left',
-                frames: this.textures.exists('female_player') ? 
-                    this.anims.generateFrameNumbers('female_player', { start: 4, end: 5 }) :
-                    [{ key: 'female_player_fallback', frame: 0 }],
+                key: 'player2_walk_left',
+                frames: this.textures.exists('player2') ? 
+                    this.anims.generateFrameNumbers('player2', { start: 4, end: 5 }) :
+                    [{ key: 'player2_fallback', frame: 0 }],
                 frameRate: 6,
                 repeat: -1
             });
-            console.log('✅ Created female_walk_left animation with frames 4-5');
+            console.log('✅ Created player2_walk_left animation with frames 4-5');
         } catch (error) {
-            console.error('❌ Error creating female_walk_left animation:', error);
+            console.error('❌ Error creating player2_walk_left animation:', error);
             // Fallback to single frame if animation creation fails
             this.anims.create({
-                key: 'female_walk_left',
-                frames: [{ key: 'female_player', frame: 4 }],
+                key: 'player2_walk_left',
+                frames: [{ key: 'player2', frame: 4 }],
                 frameRate: 1,
                 repeat: 0
             });
-            console.log('⚠️ Using fallback single frame for female_walk_left');
+            console.log('⚠️ Using fallback single frame for player2_walk_left');
         }
 
         // Debug frame count
-        if (this.textures.exists('female_player')) {
-            const texture = this.textures.get('female_player');
-            console.log('🎬 Female player texture info:', {
+        if (this.textures.exists('player2')) {
+            const texture = this.textures.get('player2');
+            console.log('🎬 Player 2 texture info:', {
                 frameTotal: texture.frameTotal,
                 frames: texture.frames
             });
         }
-        console.log('✅ Created female_walk_left animation');
+        console.log('✅ Created player2_walk_left animation');
 
         // Static jump animation using frame 4 (index 3)
         this.anims.create({
-            key: 'female_jump',
-            frames: this.textures.exists('female_player') ? 
-                [{ key: 'female_player', frame: 3 }] : // Frame 4 in human counting (frame 3)
-                [{ key: 'female_player_fallback', frame: 0 }],
+            key: 'player2_jump',
+            frames: this.textures.exists('player2') ? 
+                [{ key: 'player2', frame: 3 }] : // Frame 4 in human counting (frame 3)
+                [{ key: 'player2_fallback', frame: 0 }],
             frameRate: 1,
             repeat: 0
         });
         console.log('🎬 Debug - Static jump frame:', 3);
-        console.log('✅ Created female_jump animation');
+        console.log('✅ Created player2_jump animation');
 
         // Right jump animation using frame 3
         this.anims.create({
-            key: 'female_jump_right',
-            frames: this.textures.exists('female_player') ? 
-                [{ key: 'female_player', frame: 3 }] : // Frame 4 in human counting (frame 3)
-                [{ key: 'female_player_fallback', frame: 0 }],
+            key: 'player2_jump_right',
+            frames: this.textures.exists('player2') ? 
+                [{ key: 'player2', frame: 3 }] : // Frame 4 in human counting (frame 3)
+                [{ key: 'player2_fallback', frame: 0 }],
             frameRate: 1,
             repeat: 0
         });
-        console.log('✅ Created female_jump_right animation');
+        console.log('✅ Created player2_jump_right animation');
 
         // Left jump animation using frame 7
         this.anims.create({
-            key: 'female_jump_left',
-            frames: this.textures.exists('female_player') ? 
-                [{ key: 'female_player', frame: 7 }] : // Frame 8 in human counting (frame 7)
-                [{ key: 'female_player_fallback', frame: 0 }],
+            key: 'player2_jump_left',
+            frames: this.textures.exists('player2') ? 
+                [{ key: 'player2', frame: 7 }] : // Frame 8 in human counting (frame 7)
+                [{ key: 'player2_fallback', frame: 0 }],
             frameRate: 1,
             repeat: 0
         });
-        console.log('✅ Created female_jump_left animation');
+        console.log('✅ Created player2_jump_left animation');
 
         // Bitcoin animation
         const bitcoinKey = this.textures.exists('bitcoin') ? 'bitcoin' : 'bitcoin_fallback';
@@ -565,8 +566,8 @@ export class TitleScene extends Phaser.Scene {
         this.createParticleEffects();
         
         // Title
-        const title = this.add.text(400, 150, 'Bitcoin Adventure', {
-            fontSize: '48px',
+        const title = this.add.text(400, 80, "Satoshi's Garden", {
+            fontSize: '52px',
             fill: '#ffd700',
             fontFamily: 'Arial, sans-serif',
             stroke: '#000',
@@ -584,33 +585,35 @@ export class TitleScene extends Phaser.Scene {
             ease: 'Sine.easeInOut'
         });
         
-        const subtitleY = 215;
+        const subtitleY = 140;
         this.add.text(400, subtitleY, 'Collect Bitcoin • Avoid Central Bankers', {
             fontSize: '20px',
             fill: '#ffffff',
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5);
-        
+
         this.add.text(400, subtitleY + 30, `High Score: ${gameState.highScore}`, {
             fontSize: '18px',
             fill: '#f7931a',
             fontFamily: 'Arial, sans-serif',
             fontStyle: 'bold'
         }).setOrigin(0.5);
-        
-        // Menu
-        this.createMenu(430);
-        
-        // Demo character
-        this.createDemoCharacter();
-        
+
+        // Character selection cards (new card-based UI)
+        this.createCharacterCards();
+
+        // Start game button
+        this.createStartButton();
+
+        // Corner options (fullscreen and music)
+        this.createCornerOptions();
+
+        // High Scores button at bottom
+        this.createHighScoresButton();
+
         // Input
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-        this.cKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.C);
-        
-        // Character selection display
-        this.createCharacterSelection();
         
         gameState.currentScene = 'title';
     }
@@ -626,181 +629,213 @@ export class TitleScene extends Phaser.Scene {
         });
     }
 
-    createMenu(startY = 430) {
-        const menuY = startY;
-        const spacing = 64;
-        
-        // Start Game button
-        const startBtn = this.add.text(400, menuY, 'START GAME', {
-            fontSize: '28px',
+    createCharacterCards() {
+        // Card-based character selection
+        const cardY = 330;  // Moved down for better spacing
+        const cardSpacing = 200;  // Reduced spacing between cards
+        const card1X = 400 - cardSpacing / 2;
+        const card2X = 400 + cardSpacing / 2;
+
+        // Andy (Player 1) Card
+        this.andyCard = this.createCharacterCard(card1X, cardY, 'andy', 'Player 1 - Andy');
+
+        // Pete (Player 2) Card
+        this.peteCard = this.createCharacterCard(card2X, cardY, 'player2', 'Player 2 - Pete');
+
+        // Set initial selection
+        this.updateCardSelection();
+    }
+
+    createCharacterCard(x, y, characterKey, label) {
+        const cardWidth = 150;  // Reduced from 180
+        const cardHeight = 170;  // Reduced from 200
+
+        // Card container
+        const card = this.add.container(x, y);
+
+        // Card background
+        const bg = this.add.rectangle(0, 0, cardWidth, cardHeight, 0x000000, 0.7);
+        bg.setStrokeStyle(3, 0x666666);
+
+        // Character sprite
+        const spriteKey = characterKey === 'andy'
+            ? (this.textures.exists('player') ? 'player' : 'player_fallback')
+            : (this.textures.exists('player2') ? 'player2' : 'player2_fallback');
+
+        const sprite = this.add.sprite(0, -15, spriteKey);
+        sprite.setScale(0.15);  // Slightly smaller to fit reduced card size
+
+        // Store animation keys
+        sprite.idleAnimKey = characterKey === 'andy' ? 'player_idle' : 'player2_idle';
+        sprite.staticFrame = 0;
+
+        // Don't start animation yet - will be controlled by selection state
+        sprite.setFrame(sprite.staticFrame);
+
+        // Character name
+        const nameText = this.add.text(0, 60, label, {
+            fontSize: '15px',
+            fill: '#ffffff',
+            fontFamily: 'Arial, sans-serif',
+            fontWeight: 'bold'
+        }).setOrigin(0.5);
+
+        // Add all to container
+        card.add([bg, sprite, nameText]);
+
+        // Make card interactive
+        bg.setInteractive();
+        bg.on('pointerover', () => {
+            bg.setStrokeStyle(3, 0xffd700);
+            card.setScale(1.05);
+        });
+
+        bg.on('pointerout', () => {
+            const isSelected = (characterKey === 'andy' && gameState.selectedCharacter === 'andy') ||
+                              (characterKey === 'player2' && gameState.selectedCharacter === 'player2');
+            bg.setStrokeStyle(3, isSelected ? 0xf7931a : 0x666666);
+            card.setScale(1);
+        });
+
+        bg.on('pointerdown', () => {
+            this.soundManager.playUIClickSound();
+            gameState.selectedCharacter = characterKey;
+            this.updateCardSelection();
+        });
+
+        // Store references
+        card.characterKey = characterKey;
+        card.background = bg;
+        card.sprite = sprite;
+
+        return card;
+    }
+
+    updateCardSelection() {
+        // Update visual selection state for both cards
+        [this.andyCard, this.peteCard].forEach(card => {
+            const isSelected = (card.characterKey === 'andy' && gameState.selectedCharacter === 'andy') ||
+                              (card.characterKey === 'player2' && gameState.selectedCharacter === 'player2');
+
+            card.background.setStrokeStyle(3, isSelected ? 0xf7931a : 0x666666);
+
+            if (isSelected) {
+                card.background.setFillStyle(0x1a1a1a, 0.9);
+                // Animate selected character
+                if (card.sprite && card.sprite.idleAnimKey) {
+                    card.sprite.play(card.sprite.idleAnimKey);
+                }
+            } else {
+                card.background.setFillStyle(0x000000, 0.7);
+                // Stop animation and show static frame for unselected character
+                if (card.sprite) {
+                    card.sprite.stop();
+                    card.sprite.setFrame(card.sprite.staticFrame);
+                }
+            }
+        });
+    }
+
+    createStartButton() {
+        // Start Game button centered below cards
+        const startBtn = this.add.text(400, 520, 'START GAME', {
+            fontSize: '32px',
             fill: '#ffffff',
             fontFamily: 'Arial, sans-serif',
             stroke: '#f7931a',
-            strokeThickness: 2
+            strokeThickness: 3
         }).setOrigin(0.5).setInteractive();
-        
+
         startBtn.on('pointerover', () => {
-            startBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
+            startBtn.setScale(1.1);
             startBtn.setFill('#f7931a');
         });
-        
+
         startBtn.on('pointerout', () => {
-            startBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
+            startBtn.setScale(1);
             startBtn.setFill('#ffffff');
         });
-        
+
         startBtn.on('pointerdown', () => {
-            // Force audio context to start on first user interaction
             this.soundManager.forceResumeAudio();
             this.startGame();
         });
-        
-        // Fullscreen button
-        const fullscreenBtn = this.add.text(400, menuY + spacing, 'FULLSCREEN', {
-            fontSize: '18px',
+    }
+
+    createCornerOptions() {
+        // Fullscreen button (bottom-left corner)
+        const fullscreenBtn = this.add.text(20, 580, 'FULLSCREEN', {
+            fontSize: '16px',
             fill: '#cccccc',
             fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5).setInteractive();
-        
-                fullscreenBtn.on('pointerover', () => {
-            fullscreenBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
+        }).setOrigin(0, 1).setInteractive();
+
+        fullscreenBtn.on('pointerover', () => {
+            fullscreenBtn.setScale(1.1);
             fullscreenBtn.setFill('#ffffff');
         });
 
         fullscreenBtn.on('pointerout', () => {
-            fullscreenBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
+            fullscreenBtn.setScale(1);
             fullscreenBtn.setFill('#cccccc');
         });
-        
+
         fullscreenBtn.on('pointerdown', () => {
+            this.soundManager.playUIClickSound();
             this.toggleFullscreen();
         });
-        
-        // Music toggle button
-        const musicBtn = this.add.text(400, menuY + spacing * 2, 'MUSIC: ON', {
-            fontSize: '18px',
+
+        // Music toggle button (bottom-right corner)
+        this.musicBtn = this.add.text(780, 580, 'MUSIC: ON', {
+            fontSize: '16px',
             fill: '#cccccc',
             fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5).setInteractive();
-        
-        musicBtn.on('pointerover', () => {
-            musicBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
-            musicBtn.setFill('#ffffff');
+        }).setOrigin(1, 1).setInteractive();
+
+        this.musicBtn.on('pointerover', () => {
+            this.musicBtn.setScale(1.1);
+            this.musicBtn.setFill('#ffffff');
         });
-        
-        musicBtn.on('pointerout', () => {
-            musicBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
-            musicBtn.setFill('#cccccc');
+
+        this.musicBtn.on('pointerout', () => {
+            this.musicBtn.setScale(1);
+            this.musicBtn.setFill('#cccccc');
         });
-        
-        musicBtn.on('pointerdown', () => {
-            // Force audio context to start on first user interaction
+
+        this.musicBtn.on('pointerdown', () => {
             this.soundManager.forceResumeAudio();
-            
             const musicEnabled = this.soundManager.toggleMusic();
-            musicBtn.setText(`MUSIC: ${musicEnabled ? 'ON' : 'OFF'}`);
+            this.musicBtn.setText(`MUSIC: ${musicEnabled ? 'ON' : 'OFF'}`);
             this.soundManager.playUIClickSound();
         });
-        
-        // High Scores button - Phase 4.2
-        const highScoresBtn = this.add.text(400, menuY + spacing * 3, 'HIGH SCORES', {
+    }
+
+    createHighScoresButton() {
+        // High Scores button at bottom center
+        const highScoresBtn = this.add.text(400, 565, 'HIGH SCORES', {
             fontSize: '18px',
             fill: '#cccccc',
             fontFamily: 'Arial, sans-serif'
         }).setOrigin(0.5).setInteractive();
-        
+
         highScoresBtn.on('pointerover', () => {
-            highScoresBtn.setScale(GAME_CONSTANTS.UI.BUTTON_HOVER_SCALE);
+            highScoresBtn.setScale(1.1);
             highScoresBtn.setFill('#ffffff');
         });
-        
+
         highScoresBtn.on('pointerout', () => {
-            highScoresBtn.setScale(GAME_CONSTANTS.UI.BUTTON_NORMAL_SCALE);
+            highScoresBtn.setScale(1);
             highScoresBtn.setFill('#cccccc');
         });
-        
+
         highScoresBtn.on('pointerdown', () => {
             try {
                 this.soundManager.playUIClickSound();
                 this.scene.start('HighScoresScene');
             } catch (error) {
                 console.error('Error starting HighScoresScene:', error);
-                console.error('Staying on title screen...');
             }
         });
-        
-        this.menuItems = [startBtn, fullscreenBtn, musicBtn, highScoresBtn];
-    }
-
-    createDemoCharacter() {
-        // Show animated player character on title screen
-        const selectedCharacter = gameState.selectedCharacter;
-        let playerKey, animKey;
-        
-        if (selectedCharacter === 'female') {
-            playerKey = this.textures.exists('female_player') ? 'female_player' : 'female_player_fallback';
-            animKey = 'female_walk_right';
-            console.log('🎭 Using female character with key:', playerKey);
-            
-            // Debug texture info
-            if (this.textures.exists('female_player')) {
-                const texture = this.textures.get('female_player');
-                console.log('🖼️ Female texture info:', {
-                    key: texture.key,
-                    frameTotal: texture.frameTotal,
-                    width: texture.width,
-                    height: texture.height
-                });
-            }
-        } else {
-            playerKey = this.textures.exists('player') ? 'player' : 'player_fallback';
-            animKey = 'player_walk';
-        }
-        
-        // Remove existing demo player if it exists
-        if (this.demoPlayer) {
-            this.demoPlayer.destroy();
-        }
-        
-        this.demoPlayer = this.add.sprite(620, 420, playerKey);
-        // Apply proper scaling based on character
-        if (selectedCharacter === 'female') {
-            this.demoPlayer.setScale(GAME_CONSTANTS.PLAYER.DEMO_SCALE); // Use same demo scale as Andy
-        } else {
-            this.demoPlayer.setScale(GAME_CONSTANTS.PLAYER.DEMO_SCALE);
-        }
-        this.demoPlayer.play(animKey);
-        
-        // Make demo player bounce around
-        this.tweens.add({
-            targets: this.demoPlayer,
-            x: 600,
-            duration: 3000,
-            yoyo: true,
-            repeat: -1,
-            ease: 'Sine.easeInOut'
-        });
-    }
-
-    createCharacterSelection() {
-        // Character selection UI
-        this.add.text(400, 300, 'CHARACTER SELECTION', {
-            fontSize: '20px',
-            fill: '#ffffff',
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
-        
-        this.characterText = this.add.text(400, 325, `Current: ${gameState.selectedCharacter === 'andy' ? 'Andy' : 'Character 2'}`, {
-            fontSize: '16px',
-            fill: '#f7931a',
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
-        
-        this.add.text(400, 345, 'Press C to toggle character', {
-            fontSize: '14px',
-            fill: '#cccccc',
-            fontFamily: 'Arial, sans-serif'
-        }).setOrigin(0.5);
     }
 
     startGame() {
@@ -844,27 +879,10 @@ export class TitleScene extends Phaser.Scene {
     }
 
     update() {
+        // Start game with space bar
         if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+            this.soundManager.forceResumeAudio();
             this.startGame();
         }
-        
-        // Character selection toggle
-        if (Phaser.Input.Keyboard.JustDown(this.cKey)) {
-            this.toggleCharacter();
-        }
-    }
-
-    toggleCharacter() {
-        // Toggle between characters
-        gameState.selectedCharacter = gameState.selectedCharacter === 'andy' ? 'female' : 'andy';
-        
-        // Update UI text
-        this.characterText.setText(`Current: ${gameState.selectedCharacter === 'andy' ? 'Andy' : 'Character 2'}`);
-        
-        // Update demo character
-        this.createDemoCharacter();
-        
-        // Play UI sound
-        this.soundManager.playUIClickSound();
     }
 }
